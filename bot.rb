@@ -77,8 +77,8 @@ class Bot
     end
   end
 
-  def send_msg(text, destination)
-    msg = Message.new(destination, text)
+  def send_msg(destination, text)
+    msg = Message.new destination, text
     msg.type = :chat
     @client.send msg
   end
