@@ -39,9 +39,7 @@ class Bot
     start_subscription_callback
     start_message_callback
     Thread.new do
-      loop do
-        @backend_func.call
-      end
+      loop &@backend_func
     end unless @backend_func.nil?
     Thread.stop
   end
