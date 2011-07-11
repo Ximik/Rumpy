@@ -28,10 +28,12 @@ class Bot
     @client.auth @password
     @client.send Presence.new
     @roster = Roster::Helper.new @client
+    @roster.wait_for_roster
   end
 
   def start
     connect
+    clear_users
     start_subscription_callback
     start_message_callback
     Thread.new do
@@ -43,6 +45,17 @@ class Bot
   end
 
   private 
+
+  def clear_users
+    User.all.each do |user|
+      items = @roster.find user.jid
+      user.destroy if items.count != 1
+    end
+    @roster.items.each do |jid, item|
+      user = User.find_by_jid jid.strip.to_s
+      item.remove if user.nil?
+    end
+  end
 
   def start_subscription_callback
     @roster.add_subscription_request_callback do |item, presence|
@@ -67,7 +80,7 @@ class Bot
   
   def start_message_callback
     @client.add_message_callback do |m|
-       puts m
+       puts m.from
     end
   end
 
