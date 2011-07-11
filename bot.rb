@@ -4,15 +4,22 @@ require 'rubygems'
 require 'xmpp4r/client'
 require 'xmpp4r/roster'
 require 'active_record'
+require 'active_record/validations'
+require 'yaml'
+
+Dir[File.dirname(__FILE__) + '/models/*.rb'].each {|file| require file }
 
 class Bot
   include Jabber
   attr_accessor :backend_func
 
   def initialize
-    @jid = JID::new 'test@ximik.net'
-    @password = 'test'
+    xmppconfig = YAML::load File.open('config/xmpp.yml')
+    dbconfig = YAML::load File.open('config/database.yml')
+    @jid = JID.new xmppconfig['jid']
+    @password = xmppconfig['password']
     @client = Client.new @jid
+    ActiveRecord::Base.establish_connection dbconfig
   end
 
   def connect
@@ -38,7 +45,7 @@ class Bot
 
   def start_subscription_callback
     @roster.add_subscription_request_callback do |item, presence|
-      if presence.type == :subscribe and item.nil?
+      if item.nil?
         jid = presence.from
         @roster.accept_subscription jid
         @client.send Presence.new.set_type(:subscribe).set_to(jid)
@@ -50,9 +57,9 @@ class Bot
       when :unsubscribed
         item.remove
       when :unsubscribe
-        remove_jid item.jid.node
+        remove_jid item.jid.strip.to_s
       when :subscribed
-        add_jid item.jid.node
+        add_jid item.jid.strip.to_s
       end
     end
   end
@@ -64,16 +71,22 @@ class Bot
   end
 
   def send_msg(text, destination)
-    msg = Message::new
+    msg = Message.new
+    msg.type = :chat
     msg.to = destination
     msg.body = text
     @client.send msg
   end
 
   def add_jid(jid)
+    user = User.new
+    user.jid = jid
+    user.save
   end
 
   def remove_jid(jid)
+    user = User.find_by_jid jid
+    user.destroy unless user.nil?
   end
 
 end
