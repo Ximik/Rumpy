@@ -11,16 +11,18 @@ Dir[File.dirname(__FILE__) + '/models/*.rb'].each {|file| require file }
 
 class Bot
   include Jabber
-  attr_accessor :parser_func
-  attr_accessor :backend_func
+  attr_writer :parser_func
+  attr_writer :do_func
+  attr_writer :backend_func
 
   def initialize
-    xmppconfig = YAML::load File.open('config/xmpp.yml')
-    dbconfig = YAML::load File.open('config/database.yml')
-    @jid = JID.new xmppconfig['jid']
-    @password = xmppconfig['password']
-    @client = Client.new @jid
+    xmppconfig  = YAML::load File.open('config/xmpp.yml')
+    dbconfig    = YAML::load File.open('config/database.yml')
+    @jid        = JID.new xmppconfig['jid']
+    @password   = xmppconfig['password']
+    @client     = Client.new @jid
     ActiveRecord::Base.establish_connection dbconfig
+    @parser_func, @do_func, @backend_fund = []
   end
 
   def connect
@@ -40,7 +42,7 @@ class Bot
       loop do
         @backend_func.call
       end
-    end unless backend_func.nil?
+    end unless @backend_func.nil?
     Thread.stop
   end
 
@@ -63,7 +65,7 @@ class Bot
         jid = presence.from
         @roster.accept_subscription jid
         @client.send Presence.new.set_type(:subscribe).set_to(jid)
-        send_msg "hello", jid
+        send_msg jid, "hello"
       end
     end
     @roster.add_subscription_callback do |item, presence|
@@ -77,18 +79,20 @@ class Bot
       end
     end
   end
-  
+
   def start_message_callback
-    @client.add_message_callback do |m|
-       puts m.from
+    @client.add_message_callback do |msg|
+       if msg.type != :error and msg.body and @parser_func and @do_func then
+         Thread.new do
+           send_msg msg.from, @do_func.call(@parser_func.call msg.body)
+         end
+       end
     end
   end
 
-  def send_msg(text, destination)
-    msg = Message.new
+  def send_msg(destination, text)
+    msg = Message.new destination, text
     msg.type = :chat
-    msg.to = destination
-    msg.body = text
     @client.send msg
   end
 
@@ -102,7 +106,14 @@ class Bot
     user = User.find_by_jid jid
     user.destroy unless user.nil?
   end
-
 end
 bot = Bot.new
+bot.parser_func = lambda { |m|
+  {:respond => (m == "ты хуй")}
+}
+bot.do_func = lambda { |hash|
+  if hash[:respond] then
+    "no u"
+  end
+}
 bot.start
