@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-
 require 'rubygems'
 require 'xmpp4r/client'
 require 'xmpp4r/roster'

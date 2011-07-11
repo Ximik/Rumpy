@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require 'rumpy'
 
 bot = Bot.new
