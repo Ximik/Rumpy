@@ -11,6 +11,7 @@ Dir[File.dirname(__FILE__) + '/models/*.rb'].each {|file| require file }
 
 class Bot
   include Jabber
+  attr_accessor :parser_func
   attr_accessor :backend_func
 
   def initialize

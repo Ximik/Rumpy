@@ -1,3 +1,3 @@
 class User < ActiveRecord::Base
-  validate_uniqueness_of :jid
+  validates_uniqueness_of :jid
 end
