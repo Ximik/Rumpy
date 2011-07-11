@@ -46,12 +46,12 @@ class Rumpy
   private 
 
   def clear_users
-    main_model.all.each do |user|
+    @main_model.all.each do |user|
       items = @roster.find user.jid
       user.destroy if items.count != 1
     end
     @roster.items.each do |jid, item|
-      user = main_model.find_by_jid jid.strip.to_s
+      user = @main_model.find_by_jid jid.strip.to_s
       item.remove if user.nil?
     end
   end
@@ -79,7 +79,8 @@ class Rumpy
 
   def start_message_callback
     @client.add_message_callback do |msg|
-       if msg.type != :error and msg.body and @parser_func and @do_func and user = main_model.find_by_jid(msg.from.strip.to_s) then
+       if msg.type != :error and msg.body and @parser_func and @do_func and
+         user = @main_model.find_by_jid(msg.from.strip.to_s) then
          Thread.new do
            send_msg msg.from, @do_func.call(user, @parser_func.call(msg.body))
          end
@@ -94,13 +95,13 @@ class Rumpy
   end
 
   def add_jid(jid)
-    user = main_model.new
+    user = @main_model.new
     user.jid = jid
     user.save
   end
 
   def remove_jid(jid)
-    user = main_model.find_by_jid jid
+    user = @main_model.find_by_jid jid
     user.destroy unless user.nil?
   end
 end
