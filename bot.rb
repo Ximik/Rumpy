@@ -17,11 +17,11 @@ class Bot
 
   def initialize
     xmppconfig  = YAML::load File.open('config/xmpp.yml')
-   # dbconfig    = YAML::load File.open('config/database.yml')
+    dbconfig    = YAML::load File.open('config/database.yml')
     @jid        = JID.new xmppconfig['jid']
     @password   = xmppconfig['password']
     @client     = Client.new @jid
-   # ActiveRecord::Base.establish_connection dbconfig
+    ActiveRecord::Base.establish_connection dbconfig
     @parser_func, @do_func, @backend_fund = []
   end
 
@@ -52,7 +52,7 @@ class Bot
         jid = presence.from
         @roster.accept_subscription jid
         @client.send Presence.new.set_type(:subscribe).set_to(jid)
-        send_msg "hello", jid
+        send_msg jid, "hello"
       end
     end
     @roster.add_subscription_callback do |item, presence|
@@ -71,7 +71,7 @@ class Bot
     @client.add_message_callback do |msg|
        if msg.type != :error and msg.body and @parser_func and @do_func then
          Thread.new do
-           send_msg @do_func.call(@parser_func.call msg.body), msg.from
+           send_msg msg.from, @do_func.call(@parser_func.call msg.body)
          end
        end
     end
