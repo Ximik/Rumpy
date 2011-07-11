@@ -5,18 +5,22 @@ require 'active_record'
 require 'active_record/validations'
 require 'yaml'
 
-Dir[File.dirname(__FILE__) + '/models/*.rb'].each {|file| require file }
-
 class Rumpy
   include Jabber
+  attr_writer :config_path
+  attr_writer :models_path
   attr_writer :parser_func
   attr_writer :do_func
   attr_writer :backend_func
-  attr_writer :main_model
+
+  def main_model=(value)
+    @main_model = Kernel.const_get(value.to_s.capitalize)
+  end
 
   def initialize
-    xmppconfig  = YAML::load File.open('config/xmpp.yml')
-    dbconfig    = YAML::load File.open('config/database.yml')
+    Dir[File.dirname(__FILE__) + @models_path].each {|file| require file }
+    xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
+    dbconfig    = YAML::load File.open(@config_path + '/database.yml')
     @jid        = JID.new xmppconfig['jid']
     @password   = xmppconfig['password']
     @client     = Client.new @jid

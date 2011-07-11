@@ -3,7 +3,9 @@
 require 'rumpy'
 
 bot = Rumpy.new
-bot.main_model = :User
+bot.config_path = 'config'
+bot.models_path = 'models/*'
+bot.main_model = :user
 bot.parser_func = lambda { |m|
   {:respond => (m == "ты хуй")}
 }
