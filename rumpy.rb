@@ -7,7 +7,7 @@ require 'yaml'
 
 Dir[File.dirname(__FILE__) + '/models/*.rb'].each {|file| require file }
 
-class Bot
+class Rumpy
   include Jabber
   attr_writer :parser_func
   attr_writer :do_func

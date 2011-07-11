@@ -2,7 +2,7 @@
 
 require 'rumpy'
 
-bot = Bot.new
+bot = Rumpy.new
 bot.parser_func = lambda { |m|
   {:respond => (m == "ты хуй")}
 }
