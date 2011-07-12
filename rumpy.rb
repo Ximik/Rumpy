@@ -71,7 +71,14 @@ class Rumpy
     end
     @roster.items.each do |jid, item|
       user = @main_model.find_by_jid jid
-      item.remove if user.nil?
+      if user.nil? then
+        item.remove
+        next
+      end
+      if item.subscription != :both then
+        item.remove
+        user.remove unless user.nil?
+      end
     end
   end
 
