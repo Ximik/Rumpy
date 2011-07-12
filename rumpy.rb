@@ -13,13 +13,10 @@ class Rumpy
   attr_writer :config_path
   attr_writer :models_path
 
-  def main_model=(value)
-    @main_model = Object.const_get(value.to_s.capitalize)
-  end
-
   def load_config
     xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
     dbconfig    = YAML::load File.open(@config_path + '/database.yml')
+    @lang       = YAML::load File.open(@config_path + '/lang.yml')
     @jid        = JID.new xmppconfig['jid']
     @password   = xmppconfig['password']
     @client     = Client.new @jid
@@ -59,13 +56,20 @@ class Rumpy
 
   private 
 
+  def main_model=(value)
+    @main_model = Object.const_get(value.to_s.capitalize)
+    def @main_model.find_by_jid (jid)
+      super jid.strip.to_s
+    end
+  end
+
   def clear_users
     @main_model.all.each do |user|
       items = @roster.find user.jid
       user.destroy if items.count != 1
     end
     @roster.items.each do |jid, item|
-      user = @main_model.find_by_jid jid.strip.to_s
+      user = @main_model.find_by_jid jid
       item.remove if user.nil?
     end
   end
@@ -76,7 +80,7 @@ class Rumpy
         jid = presence.from
         @roster.accept_subscription jid
         @client.send Presence.new.set_type(:subscribe).set_to(jid)
-        send_msg jid, "hello"
+        send_msg jid, @lang['hello']
       end
     end
     @roster.add_subscription_callback do |item, presence|
@@ -84,21 +88,25 @@ class Rumpy
       when :unsubscribed
         item.remove
       when :unsubscribe
-        remove_jid item.jid.strip.to_s
+        remove_jid item.jid
       when :subscribed
-        add_jid item.jid.strip.to_s
+        add_jid item.jid
+        send_msg item.jid, @lang['authorized']
       end
     end
   end
 
   def start_message_callback
     @client.add_message_callback do |msg|
-       if msg.type != :error and msg.body and @parser_func and @do_func and
-         user = @main_model.find_by_jid(msg.from.strip.to_s) then
-         Thread.new do
-           send_msg msg.from, @do_func.call(user, @parser_func.call(msg.body))
-         end
-       end
+      if msg.type != :error and msg.body and @parser_func and @do_func then
+        if user.nil? then
+          send_msg item.jid, @lang['stranger']          
+        else
+          Thread.new do
+            send_msg msg.from, @do_func.call(user, @parser_func.call(msg.body))
+          end
+        end
+      end
     end
   end
 
@@ -110,7 +118,7 @@ class Rumpy
 
   def add_jid(jid)
     user = @main_model.new
-    user.jid = jid
+    user.jid = jid.strip.to_s
     user.save
   end
 
