@@ -95,7 +95,7 @@ class Rumpy
 
   def start_message_callback
     @client.add_message_callback do |msg|
-      if msg.type != :error and msg.body and self.respond_to? :parser_func and self.respond_to? :do_func then
+      if msg.type != :error and msg.body then
         Thread.new do
           if user = @main_model.find_by_jid(msg.from) then
             send_msg msg.from, do_func(user, parser_func(msg.body))

@@ -2,14 +2,22 @@
 
 require 'rumpy'
 
-parser_func = lambda { |m|
-  { :respond => (m == "ты няша") }
-}
+class MyBot < Rumpy
+  def initialize
+    Dir[File.dirname(__FILE__) + '/models/*.rb'].each do |file|
+      self.class.require file
+    end
+    super :config_path => 'config', :main_model => User
+  end
 
-do_func = lambda { |model, h|
-  "и ты :3" if h[:respond]
-}
+  def parser_func(m)
+    { :respond => ( m == "u r so cute" ) }
+  end
 
-bot = Rumpy.new(:config_path => 'config', :models_path => 'models', :main_model => :user, :parser_func => parser_func, :do_func => do_func)
-bot.start
+  def do_func(model, params)
+    "and u r 2 :3" if params[:respond]
+  end
+end
+
+MyBot.new.start
 
