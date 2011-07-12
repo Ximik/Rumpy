@@ -110,7 +110,7 @@ class Rumpy
     @client.add_message_callback do |msg|
       if msg.type != :error and msg.body and @parser_func and @do_func then
         Thread.new do
-          if user = @main.model.find_by_jid(msg.from) then
+          if user = @main_model.find_by_jid(msg.from) then
             send_msg msg.from, @do_func.call(user, @parser_func.call(msg.body))
           else
             send_msg item.jid, @lang['stranger']
