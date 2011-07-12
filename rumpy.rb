@@ -7,11 +7,7 @@ require 'yaml'
 
 class Rumpy
   include Jabber
-  attr_writer :parser_func
-  attr_writer :do_func
-  attr_writer :backend_func
-  attr_writer :config_path
-  attr_writer :models_path
+  attr_reader :lang
 
   def load_config
     xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
@@ -21,18 +17,14 @@ class Rumpy
     @password   = xmppconfig['password']
     @client     = Client.new @jid
     ActiveRecord::Base.establish_connection dbconfig
-
-    Dir[File.dirname(__FILE__) + "/#{@models_path}/*.rb"].each {|file| self.class.require file }
-    self.main_model = @main_model
   end
 
   def initialize(params)
     @config_path    = params[:config_path]
-    @models_path    = params[:models_path]
     @main_model     = params[:main_model]
-    @parser_func    = params[:parser_func]
-    @do_func        = params[:do_func]
-    @backend_func   = params[:backend_func]
+    def @main_model.find_by_jid(jid)
+      super jid.strip.to_s
+    end
   end
 
   def connect
@@ -50,19 +42,14 @@ class Rumpy
     start_message_callback
     @client.send Presence.new
     Thread.new do
-      loop &@backend_func
-    end unless @backend_func.nil?
+      loop do
+        backend_func()
+      end
+    end if self.respond_to? :backend_func
     Thread.stop
   end
 
   private
-
-  def main_model=(value)
-    @main_model = self.class.const_get(value.to_s.capitalize)
-    def @main_model.find_by_jid (jid)
-      super jid.strip.to_s
-    end
-  end
 
   def clear_users
     @main_model.all.each do |user|
@@ -108,10 +95,10 @@ class Rumpy
 
   def start_message_callback
     @client.add_message_callback do |msg|
-      if msg.type != :error and msg.body and @parser_func and @do_func then
+      if msg.type != :error and msg.body and self.respond_to? :parser_func and self.respond_to? :do_func then
         Thread.new do
           if user = @main_model.find_by_jid(msg.from) then
-            send_msg msg.from, @do_func.call(user, @parser_func.call(msg.body))
+            send_msg msg.from, do_func(user, parser_func(msg.body))
           else
             send_msg msg.from, @lang['stranger']
           end
