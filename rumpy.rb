@@ -38,7 +38,6 @@ class Rumpy
   def connect
     @client.connect
     @client.auth @password
-    @client.send Presence.new
     @roster = Roster::Helper.new @client
     @roster.wait_for_roster
   end
@@ -49,6 +48,7 @@ class Rumpy
     clear_users
     start_subscription_callback
     start_message_callback
+    @client.send Presence.new
     Thread.new do
       loop &@backend_func
     end unless @backend_func.nil?
@@ -113,7 +113,7 @@ class Rumpy
           if user = @main_model.find_by_jid(msg.from) then
             send_msg msg.from, @do_func.call(user, @parser_func.call(msg.body))
           else
-            send_msg item.jid, @lang['stranger']
+            send_msg msg.from, @lang['stranger']
           end
         end
       end
