@@ -7,25 +7,34 @@ require 'yaml'
 
 class Rumpy
   include Jabber
-  attr_writer :config_path
-  attr_writer :models_path
   attr_writer :parser_func
   attr_writer :do_func
   attr_writer :backend_func
+  attr_writer :config_path
+  attr_writer :models_path
 
   def main_model=(value)
-    @main_model = Kernel.const_get(value.to_s.capitalize)
+    @main_model = Object.const_get(value.to_s.capitalize)
   end
 
-  def initialize
-    Dir[File.dirname(__FILE__) + @models_path].each {|file| require file }
+  def load_config
     xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
     dbconfig    = YAML::load File.open(@config_path + '/database.yml')
     @jid        = JID.new xmppconfig['jid']
     @password   = xmppconfig['password']
     @client     = Client.new @jid
+    Object.class_eval("Dir[File.dirname(__FILE__) + '/" + @models_path + "/*.rb'].each {|file| require file }")
     ActiveRecord::Base.establish_connection dbconfig
-    @parser_func, @do_func, @backend_fund = []
+    self.main_model = @main_model
+  end
+
+  def initialize(params)
+    @config_path    = params[:config_path]
+    @models_path    = params[:models_path]
+    @main_model     = params[:main_model]
+    @parser_func    = params[:parser_func]
+    @do_func        = params[:do_func]
+    @backend_func   = params[:backend_func]
   end
 
   def connect
@@ -37,6 +46,7 @@ class Rumpy
   end
 
   def start
+    load_config
     connect
     clear_users
     start_subscription_callback

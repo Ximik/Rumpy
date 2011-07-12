@@ -2,21 +2,14 @@
 
 require 'rumpy'
 
-bot = Rumpy.new
-<<<<<<< HEAD
-bot.config_path = 'config'
-bot.models_path = 'models/*'
-bot.main_model = :user
-=======
-bot.main_model = User
->>>>>>> fd4d87001b4a15b0e320f98174287b3901728f59
-bot.parser_func = lambda { |m|
-  {:respond => (m == "ты хуй")}
+parser_func = lambda { |m|
+  { :respond => (m == "ты няша") }
 }
-bot.do_func = lambda { |model, hash|
-  if hash[:respond] then
-    "no u"
-  end
+
+do_func = lambda { |model, h|
+  "и ты :3" if h[:respond]
 }
+
+bot = Rumpy.new(:config_path => 'config', :models_path => 'models', :main_model => :user, :parser_func => parser_func, :do_func => do_func)
 bot.start
 
