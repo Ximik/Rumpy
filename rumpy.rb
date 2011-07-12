@@ -14,7 +14,7 @@ class Rumpy
   attr_writer :models_path
 
   def main_model=(value)
-    @main_model = Object.const_get(value.to_s.capitalize)
+    @main_model = self.class.const_get(value.to_s.capitalize)
   end
 
   def load_config
@@ -23,8 +23,9 @@ class Rumpy
     @jid        = JID.new xmppconfig['jid']
     @password   = xmppconfig['password']
     @client     = Client.new @jid
-    Object.class_eval("Dir[File.dirname(__FILE__) + '/" + @models_path + "/*.rb'].each {|file| require file }")
     ActiveRecord::Base.establish_connection dbconfig
+
+    Dir[File.dirname(__FILE__) + "/#{@models_path}/*.rb"].each {|file| self.class.require file }
     self.main_model = @main_model
   end
 
@@ -72,33 +73,35 @@ class Rumpy
 
   def start_subscription_callback
     @roster.add_subscription_request_callback do |item, presence|
-      if item.nil?
+      Thread.new do
         jid = presence.from
         @roster.accept_subscription jid
         @client.send Presence.new.set_type(:subscribe).set_to(jid)
         send_msg jid, "hello"
-      end
+      end if item.nil?
     end
     @roster.add_subscription_callback do |item, presence|
-      case presence.type
-      when :unsubscribed
-        item.remove
-      when :unsubscribe
-        remove_jid item.jid.strip.to_s
-      when :subscribed
-        add_jid item.jid.strip.to_s
+      Thread.new do
+        case presence.type
+        when :unsubscribed
+          item.remove
+        when :unsubscribe
+          remove_jid item.jid.strip.to_s
+        when :subscribed
+          add_jid item.jid.strip.to_s
+        end
       end
     end
   end
 
   def start_message_callback
     @client.add_message_callback do |msg|
+      Thread.new do
        if msg.type != :error and msg.body and @parser_func and @do_func and
-         user = @main_model.find_by_jid(msg.from.strip.to_s) then
-         Thread.new do
+         user = @main_model.find_by_jid(msg.from.strip.to_s)
            send_msg msg.from, @do_func.call(user, @parser_func.call(msg.body))
-         end
        end
+      end
     end
   end
 
