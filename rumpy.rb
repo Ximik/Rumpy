@@ -5,7 +5,7 @@ require 'active_record'
 require 'active_record/validations'
 require 'yaml'
 
-class Rumpy
+module Rumpy
   include Jabber
   attr_reader :lang
 
@@ -17,11 +17,10 @@ class Rumpy
     @password   = xmppconfig['password']
     @client     = Client.new @jid
     ActiveRecord::Base.establish_connection dbconfig
-  end
-
-  def initialize(params)
-    @config_path    = params[:config_path]
-    @main_model     = params[:main_model]
+    Dir[File.dirname(__FILE__) + @models_path ].each do |file|
+      self.class.require file
+    end
+    @main_model = self.class.const_get @main_model.to_s.capitalize
     def @main_model.find_by_jid(jid)
       super jid.strip.to_s
     end
@@ -43,7 +42,7 @@ class Rumpy
     @client.send Presence.new
     Thread.new do
       loop do
-        backend_func()
+        backend_func
       end
     end if self.respond_to? :backend_func
     Thread.stop
@@ -101,6 +100,8 @@ class Rumpy
             send_msg msg.from, do_func(user, parser_func(msg.body))
           else
             send_msg msg.from, @lang['stranger']
+            items = @roster.find msg.from.strip.to_s
+            items.first.remove unless items.empty?
           end
         end
       end

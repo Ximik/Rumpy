@@ -2,12 +2,13 @@
 
 require 'rumpy'
 
-class MyBot < Rumpy
+class MyBot
+  include Rumpy
+
   def initialize
-    Dir[File.dirname(__FILE__) + '/models/*.rb'].each do |file|
-      self.class.require file
-    end
-    super :config_path => 'config', :main_model => User
+    @config_path = 'config'
+    @models_path = '/models/*.rb'
+    @main_model  = :user
   end
 
   def parser_func(m)
