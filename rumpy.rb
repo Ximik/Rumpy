@@ -42,7 +42,7 @@ module Rumpy
     @client.send Presence.new
     Thread.new do
       loop do
-        backend_func
+        send_msg backend_func
       end
     end if self.respond_to? :backend_func
     Thread.stop
@@ -109,6 +109,7 @@ module Rumpy
   end
 
   def send_msg(destination, text)
+    return if destination.nil? or text.nil?
     msg = Message.new destination, text
     msg.type = :chat
     @client.send msg
