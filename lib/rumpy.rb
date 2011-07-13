@@ -103,10 +103,11 @@ module Rumpy
         Thread.new do
           if user = @main_model.find_by_jid(msg.from) then
             pars = parser_func msg.body
+            message = ""
             @mutexes[user.jid].synchronize do
               message = do_func user, pars
             end
-            send_msg msg.from, messsage
+            send_msg msg.from, message
           else
             send_msg msg.from, @lang['stranger']
             items = @roster.find msg.from.strip.to_s
