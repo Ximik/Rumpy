@@ -14,28 +14,26 @@ Our goal is 'DO NOT REINVENT THE WHEEL'.
 
 * Rumpy uses 3 configs:
   database.yml  ::  Your bot's database preferences
-  lang.yml      ::  Your bot's responces. Append to existing keys more answers and use them like `@lang['someanswer]`. **There is must be at least 3 keys : hello, stranger, authorized**
+  lang.yml      ::  Your bot's responces. Append to existing keys more answers and use them like @lang['someanswer]. **There is must be at least 3 keys : hello, stranger, authorized
   xmpp.yml      ::  Your bot's account settings
 * Implement your ActiveRecord models in one directory.
 * Start writing your class:
   * Mix in Rumpy module:
     include Rumpy
   * Define 3 instance variables:
-    * @models_path  ::  Path to directory, containing all ruby files with models.
-    * @config_path  ::  Path to directory, containing all ruby config files.
-    * @main_model   ::  Symbol, that stands for main model. If your main model is, e.g. `User`, set @main_model to `:user`
+    @models_path  ::  Path to directory, containing all ruby files with models.
+    @config_path  ::  Path to directory, containing all ruby config files.
+    @main_model   ::  Symbol, that stands for main model. If your main model is, e.g. User, set @main_model to :user
   * Write 3 methods:
-    * backend_func() -> jid, msg
-      This optional method is running all the time in the loop. Returns receiver and msg. If jid isn't nil, bot will send msg to jid.
-    * parser_func(msg) -> pars_result
-      This method parses any incoming message and returs results.
-    * do_func(usermodel, pars_results) -> msg
-      This method uses results from parser_func, doing some stuff with model of user, from whom message was received. Returns message to be send to this user.
+    backend_func() -> jid, msg :: This optional method is running all the time in the loop. Returns receiver and msg. If jid isn't nil, bot will send msg to jid.
+    parser_func(msg) -> pars_result :: This method parses any incoming message and returs results.
+    do_func(usermodel, pars_results) -> msg :: This method uses results from parser_func, doing some stuff with model of user, from whom message was received. Returns message to be send to this user.
 * Run bot:
   YourBot.new.start
 
 == Example
 
+Look {example CuteBot}[https://github.com/MPogoda/CuteBot] and {Yadoo}[https://github.com/MPogoda/Yadoo].
 
 == License
 
