@@ -56,7 +56,7 @@ module Rumpy
   end
 
   def clear_users
-    @main_model.all.each do |user|
+    @main_model.find_each do |user|
       items = @roster.find user.jid
       user.destroy if items.count != 1
     end
