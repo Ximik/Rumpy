@@ -13,9 +13,9 @@ Our goal is 'DO NOT REINVENT THE WHEEL'.
 == Getting started
 
 * Rumpy uses 3 configs:
-  * database.yml  ::  Your bot's database preferences
-  * lang.yml      ::  Your bot's responces. Append to existing keys more answers and use them like `@lang['someanswer]`. **There is must be at least 3 keys : hello, stranger, authorized**
-  * xmpp.yml      ::  Your bot's account settings
+  database.yml  ::  Your bot's database preferences
+  lang.yml      ::  Your bot's responces. Append to existing keys more answers and use them like `@lang['someanswer]`. **There is must be at least 3 keys : hello, stranger, authorized**
+  xmpp.yml      ::  Your bot's account settings
 * Implement your ActiveRecord models in one directory.
 * Start writing your class:
   * Mix in Rumpy module:
