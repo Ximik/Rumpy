@@ -3,11 +3,16 @@ require 'xmpp4r/client'
 require 'xmpp4r/roster'
 require 'active_record'
 require 'active_record/validations'
-require 'yaml'
 
 module Rumpy
   include Jabber
   attr_reader :lang
+
+  def initialize
+    @mutexes = Hash.new do |h, k|
+      h[k] = Mutex.new
+    end
+  end
 
   def load_config
     xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
@@ -94,14 +99,18 @@ module Rumpy
 
   def start_message_callback
     @client.add_message_callback do |msg|
-      if msg.type != :error and msg.body then
+      if msg.type != :error and msg.body and msg.from then
         Thread.new do
           if user = @main_model.find_by_jid(msg.from) then
-            send_msg msg.from, do_func(user, parser_func(msg.body))
+            pars = parser_func msg.body
+            @mutexes[user.jid].synchronize do
+              message = do_func user, pars
+            end
+            send_msg msg.from, messsage
           else
             send_msg msg.from, @lang['stranger']
             items = @roster.find msg.from.strip.to_s
-            items.first.remove unless items.empty?
+            items.first.last.remove unless items.empty?
           end
         end
       end
