@@ -22,9 +22,9 @@ module Rumpy
     @password   = xmppconfig['password']
     @client     = Client.new @jid
     ActiveRecord::Base.establish_connection dbconfig
-    Dir[File.dirname(__FILE__) + @models_path ].each do |file|
+    Dir[@models_path].each do |file|
       self.class.require file
-    end
+    end unless @models_path.nil?
     @main_model = self.class.const_get @main_model.to_s.capitalize
     def @main_model.find_by_jid(jid)
       super jid.strip.to_s
