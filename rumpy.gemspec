@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
 
   s.authors           = [ "Tsokurov A.G. <me@ximik.net>", "Pogoda M.V. <mpogoda@jabber.kiev.ua>" ]
   s.date              = %q{2011-06-13}
-  s.description       = %q{Simple framework to quickly make up jabber bot}
+  s.description       = %q{Simple framework to make up jabber bot quickly}
   s.email             = %q{mpogoda@lavabit.com}
   s.files             = [ "lib/rumpy.rb" ]
   s.homepage          = %q{https://github.com/Ximik/Rumpy}
