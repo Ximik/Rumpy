@@ -14,30 +14,6 @@ module Rumpy
     end
   end
 
-  def load_config
-    xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
-    dbconfig    = YAML::load File.open(@config_path + '/database.yml')
-    @lang       = YAML::load File.open(@config_path + '/lang.yml')
-    @jid        = JID.new xmppconfig['jid']
-    @password   = xmppconfig['password']
-    @client     = Client.new @jid
-    ActiveRecord::Base.establish_connection dbconfig
-    Dir[File.dirname(__FILE__) + @models_path ].each do |file|
-      self.class.require file
-    end
-    @main_model = self.class.const_get @main_model.to_s.capitalize
-    def @main_model.find_by_jid(jid)
-      super jid.strip.to_s
-    end
-  end
-
-  def connect
-    @client.connect
-    @client.auth @password
-    @roster = Roster::Helper.new @client
-    @roster.wait_for_roster
-  end
-
   def start
     load_config
     connect
@@ -54,6 +30,30 @@ module Rumpy
   end
 
   private
+
+  def load_config
+    xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
+    dbconfig    = YAML::load File.open(@config_path + '/database.yml')
+    @lang       = YAML::load File.open(@config_path + '/lang.yml')
+    @jid        = JID.new xmppconfig['jid']
+    @password   = xmppconfig['password']
+    @client     = Client.new @jid
+    ActiveRecord::Base.establish_connection dbconfig
+    Dir[@models_path].each do |file|
+      self.class.require file
+    end unless @models_path.nil?
+    @main_model = self.class.const_get @main_model.to_s.capitalize
+    def @main_model.find_by_jid(jid)
+      super jid.strip.to_s
+    end
+  end
+
+  def connect
+    @client.connect
+    @client.auth @password
+    @roster = Roster::Helper.new @client
+    @roster.wait_for_roster
+  end
 
   def clear_users
     @main_model.all.each do |user|
