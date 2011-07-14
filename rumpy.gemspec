@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name              = 'rumpy'
-  s.version           = '0.8.8'
+  s.version           = '0.8.9'
 
   s.authors           = [ 'Tsokurov A.G.', 'Pogoda M.V.' ]
   s.date              = '2011-06-13'

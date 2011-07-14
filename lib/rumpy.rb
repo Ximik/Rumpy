@@ -5,10 +5,28 @@ require 'active_record'
 require 'active_record/validations'
 
 module Rumpy
+
+
+  def self.start(botclass)
+    pid = fork do
+      botclass.new.start
+    end
+    File.open(botclass.to_s + '.pid', 'w') do |file|
+      file.puts pid
+    end
+    Process.detach pid
+  end
+
+  def self.stop(botclass)
+    File.open(botclass.to_s + '.pid') do |file|
+      Process.kill :TERM, file.gets.strip.to_i
+    end
+  end
+
+  module Bot
   include Jabber
 
   def start
-    pid = fork do
       init
       connect
       clear_users
@@ -21,17 +39,6 @@ module Rumpy
         end
       end if self.respond_to? :backend_func
       Thread.stop
-    end
-    File.open(@pid, 'w') do |file|
-      file.puts pid
-    end
-    Process.detach pid
-  end
-
-  def stop
-    File.open(@pid) do |file|
-      Process.kill :TERM, file.gets.strip.to_i
-    end
   end
 
   private
@@ -144,5 +151,7 @@ module Rumpy
   def remove_jid(jid)
     user = @main_model.find_by_jid jid
     user.destroy unless user.nil?
+  end
+
   end
 end
