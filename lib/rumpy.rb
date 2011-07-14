@@ -7,43 +7,54 @@ require 'active_record/validations'
 module Rumpy
   include Jabber
 
-  def initialize
-    @mutexes = Hash.new do |h, k|
-      h[k] = Mutex.new
+  def start
+    pid = fork do
+      init
+      connect
+      clear_users
+      start_subscription_callback
+      start_message_callback
+      @client.send Presence.new
+      Thread.new do
+        loop do
+          send_msg backend_func
+        end
+      end if self.respond_to? :backend_func
+      Thread.stop
     end
+    File.open(@pid, 'w') do |file|
+      file.puts pid
+    end
+    Process.detach pid
   end
 
-  def start
-    load_config
-    connect
-    clear_users
-    start_subscription_callback
-    start_message_callback
-    @client.send Presence.new
-    Thread.new do
-      loop do
-        send_msg backend_func
-      end
-    end if self.respond_to? :backend_func
-    Thread.stop
+  def stop
+    File.open(@pid) do |file|
+      Process.kill :TERM, file.gets.strip.to_i
+    end
   end
 
   private
 
-  def load_config
+  def init
     xmppconfig  = YAML::load File.open(@config_path + '/xmpp.yml')
-    dbconfig    = YAML::load File.open(@config_path + '/database.yml')
     @lang       = YAML::load File.open(@config_path + '/lang.yml')
     @jid        = JID.new xmppconfig['jid']
     @password   = xmppconfig['password']
     @client     = Client.new @jid
-    ActiveRecord::Base.establish_connection dbconfig
-    Dir[@models_path].each do |file|
-      self.class.require file
-    end unless @models_path.nil?
-    @main_model = self.class.const_get @main_model.to_s.capitalize
+    if not @models_path.nil? then
+      dbconfig    = YAML::load File.open(@config_path + '/database.yml')
+      ActiveRecord::Base.establish_connection dbconfig
+      Dir[@models_path].each do |file|
+        Object.require file
+      end
+    end
+    @main_model = Object.const_get @main_model.to_s.capitalize
     def @main_model.find_by_jid(jid)
       super jid.strip.to_s
+    end
+    @mutexes = Hash.new do |h, k|
+      h[k] = Mutex.new
     end
   end
 
