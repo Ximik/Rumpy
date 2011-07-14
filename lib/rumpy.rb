@@ -6,7 +6,6 @@ require 'active_record/validations'
 
 module Rumpy
   include Jabber
-  attr_reader :lang
 
   def initialize
     @mutexes = Hash.new do |h, k|
