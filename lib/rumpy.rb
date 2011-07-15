@@ -7,24 +7,35 @@ require 'active_record/validations'
 module Rumpy
 
   def self.start(botclass)
+    bot = botclass.new
     pid = fork do
-      botclass.new.start
+      bot.start
     end
-    File.open(botclass.to_s.downcase + '.pid', 'w') do |file|
+    self.pid_file(bot)
+    File.open(pid, 'w') do |file|
       file.puts pid
     end
     Process.detach pid
   end
 
   def self.stop(botclass)
-    File.open(botclass.to_s.downcase + '.pid') do |file|
+    pid = self.pid_file(botclass.new)
+    File.open(pid) do |file|
       Process.kill :TERM, file.gets.strip.to_i
     end
-    File.unlink botclass.to_s.downcase + '.pid'
+    File.unlink pid
+  end
+
+  def self.pid_file(bot)
+    pid_file = bot.pid_file
+    pid_file = bot.class.to_s.downcase + '.pid' if pid_file.nil?
+    pid_file
   end
 
   module Bot
     include Jabber
+
+    attr_reader :pid_file
 
     def start
       init
