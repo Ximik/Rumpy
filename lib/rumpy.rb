@@ -104,9 +104,8 @@ module Rumpy
       end
       @roster.add_subscription_callback do |item, presence|
         case presence.type
-        when :unsubscribed
+        when :unsubscribed, :unsubscribe
           item.remove
-        when :unsubscribe
           remove_jid item.jid
         when :subscribed
           add_jid item.jid
