@@ -7,9 +7,9 @@ require 'active_record/validations'
 module Rumpy
 
   def self.start(botclass)
+    bot = botclass.new
     pf = self.pid_file bot
     return false if File.exist? pf
-    bot = botclass.new
     pid = fork do
       bot.start
     end
