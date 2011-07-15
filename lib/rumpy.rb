@@ -7,21 +7,27 @@ require 'active_record/validations'
 module Rumpy
 
   def self.start(botclass)
+    pf = self.pid_file bot
+    return false if File.exist? pf
     bot = botclass.new
     pid = fork do
       bot.start
     end
-    File.open(self.pid_file(bot), 'w') do |file|
+    File.open(pf, 'w') do |file|
       file.puts pid
     end
     Process.detach pid
+    true
   end
 
   def self.stop(botclass)
-    File.open(self.pid_file botclass.new) do |file|
+    pf = self.pid_file botclass.new
+    return false unless File.exist? pf
+    File.open(pf) do |file|
       Process.kill :TERM, file.gets.strip.to_i
     end
-    File.unlink pid
+    File.unlink pf
+    true
   end
 
   def self.pid_file(bot)
