@@ -90,7 +90,7 @@ module Rumpy
           next
         elsif item.subscription != :both then
           item.remove
-          user.remove
+          user.destroy
         end
       end
     end
