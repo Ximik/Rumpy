@@ -11,8 +11,7 @@ module Rumpy
     pid = fork do
       bot.start
     end
-    self.pid_file(bot)
-    File.open(pid, 'w') do |file|
+    File.open(self.pid_file(bot), 'w') do |file|
       file.puts pid
     end
     Process.detach pid
