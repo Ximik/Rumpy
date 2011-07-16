@@ -10,17 +10,10 @@ module Rumpy
     bot = botclass.new
     pf = pid_file bot
     return false if File.exist? pf
-    pid = if Process.respond_to? :daemon then
-            bot.start
-            Process.daemon
-            $$
-          else
-            px = fork do
-                   bot.start
-                 end
-            Process.detach px
-            px
-          end
+    pid = fork do
+      bot.start
+    end
+    Process.detach pid
     File.open(pf, 'w') do |file|
       file.puts pid
     end
