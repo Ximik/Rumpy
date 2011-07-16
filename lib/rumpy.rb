@@ -8,20 +8,27 @@ module Rumpy
 
   def self.start(botclass)
     bot = botclass.new
-    pf = self.pid_file bot
+    pf = pid_file bot
     return false if File.exist? pf
-    pid = fork do
-      bot.start
-    end
+    pid = if Process.respond_to? :daemon then
+            bot.start
+            Process.daemon
+            $$
+          else
+            px = fork do
+                   bot.start
+                 end
+            Process.detach px
+            px
+          end
     File.open(pf, 'w') do |file|
       file.puts pid
     end
-    Process.detach pid
     true
   end
 
   def self.stop(botclass)
-    pf = self.pid_file botclass.new
+    pf = pid_file botclass.new
     return false unless File.exist? pf
     File.open(pf) do |file|
       Process.kill :TERM, file.gets.strip.to_i
