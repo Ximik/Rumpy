@@ -74,7 +74,7 @@ module Rumpy
           end
         rescue => e
           $err_file.puts e.inspect
-          $err_file.puts e.traceback
+          $err_file.puts e.backtrace
         end
       end if self.respond_to? :backend_func
       Thread.stop
