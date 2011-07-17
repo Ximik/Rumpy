@@ -49,13 +49,13 @@ module Rumpy
     attr_reader :pid_file
 
     def start
-      @errfile = if @errfile then
-                   File.open(@errfile, 'w')
+      @err_file = if @err_file then
+                   File.open(@err_file, 'w')
                  else
                    $stderr
                  end
       Signal.trap :TERM do |signo|
-        @errfile.close
+        @err_file.close
         exit
       end
 
@@ -73,8 +73,8 @@ module Rumpy
             end
           end
         rescue => e
-          $errfile.puts e.inspect
-          $errfile.puts e.traceback
+          $err_file.puts e.inspect
+          $err_file.puts e.traceback
         end
       end if self.respond_to? :backend_func
       Thread.stop
@@ -170,8 +170,8 @@ module Rumpy
             end
           end
         rescue => e
-          @errfile.puts e.inspect
-          @errfile.puts e.backtrace
+          @err_file.puts e.inspect
+          @err_file.puts e.backtrace
         end
       end
     end
