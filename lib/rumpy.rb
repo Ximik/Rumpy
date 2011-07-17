@@ -23,11 +23,18 @@ module Rumpy
   def self.stop(botclass)
     pf = pid_file botclass.new
     return false unless File.exist? pf
-    File.open(pf) do |file|
-      Process.kill :TERM, file.gets.strip.to_i
+    begin
+      File.open(pf) do |file|
+        Process.kill :TERM, file.gets.strip.to_i
+      end
+    ensure
+      File.unlink pf
     end
-    File.unlink pf
     true
+  end
+
+  def self.run(botclass)
+    botclass.new.start
   end
 
   def self.pid_file(bot)
@@ -42,6 +49,16 @@ module Rumpy
     attr_reader :pid_file
 
     def start
+      @errfile = if @errfile then
+                   File.open(@errfile, 'w')
+                 else
+                   $stderr
+                 end
+      Signal.trap :TERM do |signo|
+        @errfile.close
+        exit
+      end
+
       init
       connect
       clear_users
@@ -49,10 +66,15 @@ module Rumpy
       start_message_callback
       @client.send Presence.new
       Thread.new do
-        loop do
-          backend_func().each do |result|
-            send_msg *result
+        begin
+          loop do
+            backend_func().each do |result|
+              send_msg *result
+            end
           end
+        rescue => e
+          $errfile.puts e.inspect
+          $errfile.puts e.traceback
         end
       end if self.respond_to? :backend_func
       Thread.stop
@@ -131,19 +153,25 @@ module Rumpy
 
     def start_message_callback
       @client.add_message_callback do |msg|
-        if msg.type != :error and msg.body and msg.from then
-          if user = @main_model.find_by_jid(msg.from) then
-            pars = parser_func msg.body
-            message = ""
-            @mutexes[user.jid].synchronize do
-              message = do_func user, pars
+        begin
+          if msg.type != :error and msg.body and msg.from then
+            if user = @main_model.find_by_jid(msg.from) then
+              pars_results = parser_func msg.body
+
+              message = ""
+              @mutexes[user.jid].synchronize do
+                message = do_func user, pars_results
+              end
+              send_msg msg.from, message
+            else
+              send_msg msg.from, @lang['stranger']
+              items = @roster.find msg.from.strip.to_s
+              items.first.last.remove unless items.empty?
             end
-            send_msg msg.from, message
-          else
-            send_msg msg.from, @lang['stranger']
-            items = @roster.find msg.from.strip.to_s
-            items.first.last.remove unless items.empty?
           end
+        rescue => e
+          @errfile.puts e.inspect
+          @errfile.puts e.backtrace
         end
       end
     end

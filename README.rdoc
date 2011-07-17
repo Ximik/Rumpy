@@ -27,17 +27,26 @@ Our goal is 'DO NOT REINVENT THE WHEEL'.
     @models_path  ::  Path to directory, containing all ruby files with models.
     @config_path  ::  Path to directory, containing all ruby config files
     @main_model   ::  Symbol, that stands for main model. If your main model is, e.g. User, set @main_model to :user
-    @pid_file     ::  Optional variable, sets the pidfile location. If not set, pidfile will be created in current directory.
+    @pid_file     ::  Optional variable, sets location of the file to which pid of detached process will be saved. If not set, it equals NameOfYourBotClass.downcase + '.pid'.
+    @errfile      ::  Optional variable, sets location of the file for errors. If not set, standard error stream will be used.
   * Write 3 methods:
     backend_func() -> [[receiver, message]*] :: This optional method is running all the time in the loop. Returns array of pairs [receiver, message].
-    parser_func(msg) -> pars_result :: This method parses any incoming message and returs results
+    parser_func(msg) -> pars_result :: This method parses any incoming message and returs results.
     do_func(usermodel, pars_results) -> msg :: This method uses results from parser_func, doing some stuff with model of user, from whom message was received. Returns message to be send to this user
 * Run bot:
-  Rumpy.start YourBotClassName
+  You can run your bot without detaching:
+    Rumpy.run YourBotClassName
+  Or with detaching:
+    To start your bot:
+      Rumpy.start YourBotClassName
+    To stop it:
+      Rumpy.stop YourBotClassName
 
 == Example
 
-Look {example CuteBot}[https://github.com/MPogoda/CuteBot] and {yatodo}[https://github.com/MPogoda/yatodo].
+Look at {CuteBot}[https://github.com/MPogoda/CuteBot], {yatodo}[https://github.com/MPogoda/yatodo], {Noty}[https://github.com/Ximik/Noty].
+
+Feel free to contact us about any questions related to Rumpy.
 
 == License
 
