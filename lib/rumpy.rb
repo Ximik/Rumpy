@@ -44,8 +44,6 @@ module Rumpy
   end
 
   module Bot
-    include Jabber
-
     attr_reader :pid_file
 
     def start
@@ -64,7 +62,7 @@ module Rumpy
       clear_users
       start_subscription_callback
       start_message_callback
-      @client.send Presence.new
+      @client.send Jabber::Presence.new
       Thread.new do
         begin
           loop do
@@ -86,9 +84,9 @@ module Rumpy
 
       xmppconfig  = YAML::load_file @config_path + '/xmpp.yml'
       @lang       = YAML::load_file @config_path + '/lang.yml'
-      @jid        = JID.new xmppconfig['jid']
+      @jid        = Jabber::JID.new xmppconfig['jid']
       @password   = xmppconfig['password']
-      @client     = Client.new @jid
+      @client     = Jabber::Client.new @jid
 
       if @models_path then
         dbconfig  = YAML::load_file @config_path + '/database.yml'
@@ -111,7 +109,7 @@ module Rumpy
     def connect
       @client.connect
       @client.auth @password
-      @roster = Roster::Helper.new @client
+      @roster = Jabber::Roster::Helper.new @client
       @roster.wait_for_roster
     end
 
@@ -136,7 +134,7 @@ module Rumpy
       @roster.add_subscription_request_callback do |item, presence|
         jid = presence.from
         @roster.accept_subscription jid
-        @client.send Presence.new.set_type(:subscribe).set_to(jid)
+        @client.send Jabber::Presence.new.set_type(:subscribe).set_to(jid)
         send_msg jid, @lang['hello']
       end
       @roster.add_subscription_callback do |item, presence|
@@ -178,7 +176,7 @@ module Rumpy
 
     def send_msg(destination, text)
       return if destination.nil? or text.nil?
-      msg = Message.new destination, text
+      msg = Jabber::Message.new destination, text
       msg.type = :chat
       @client.send msg
     end
