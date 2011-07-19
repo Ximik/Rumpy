@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'xmpp4r/client'
 require 'xmpp4r/roster'
+require 'xmpp4r/version'
 require 'active_record'
 require 'active_record/validations'
 
@@ -62,7 +63,8 @@ module Rumpy
       clear_users
       start_subscription_callback
       start_message_callback
-      @client.send Jabber::Presence.new
+      @client.send Jabber::Presence.new.set_priority(@priority).set_status(@status)
+      Jabber::Version::SimpleResponder.new(@client, @bot_name || self.class.to_s, @bot_version || '1.0.0', RUBY_PLATFORM)
       Thread.new do
         begin
           loop do
@@ -85,6 +87,8 @@ module Rumpy
       xmppconfig  = YAML::load_file @config_path + '/xmpp.yml'
       @lang       = YAML::load_file @config_path + '/lang.yml'
       @jid        = Jabber::JID.new xmppconfig['jid']
+      @priority   = xmppconfig['priority']
+      @status     = xmppconfig['status']
       @password   = xmppconfig['password']
       @client     = Jabber::Client.new @jid
 
