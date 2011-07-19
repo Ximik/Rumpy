@@ -23,7 +23,7 @@ Our goal is 'DO NOT REINVENT THE WHEEL'.
 * Start writing your class:
   * Mix in Rumpy::Bot module:
     include Rumpy::Bot
-  * Define 3 instance variables:
+  * Define some instance variables:
     @models_path  ::  Path to directory, containing all ruby files with models.
     @config_path  ::  Path to directory, containing all ruby config files
     @main_model   ::  Symbol, that stands for main model. If your main model is, e.g. User, set @main_model to :user
