@@ -176,6 +176,23 @@ module Rumpy
           @err_file.puts e.backtrace
         end
       end
+      @client.add_iq_callback do |iq|
+        if iq.type == :get then
+          response = Jabber::Iq.new :error, iq.from
+          response.id = iq.id
+          if iq.elements["time"] == "<time xmlns='urn:xmpp:time'/>" then
+            response.set_type :result
+            response.root.add REXML::Element.new('time')
+            response.elements['time'].attributes['xmlns'] = 'urn:xmpp:time'
+            tm = Time.now
+            response.elements['time'].add REXML::Element.new('tzo')
+            response.elements['time/tzo'].text = tm.xmlschema[-6..-1]
+            response.elements['time'].add REXML::Element.new('utc')
+            response.elements['time/utc'].text = tm.utc.xmlschema
+           end
+          @client.send response
+        end
+      end
     end
 
     def send_msg(destination, text)
