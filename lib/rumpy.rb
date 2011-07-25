@@ -153,7 +153,6 @@ module Rumpy
         if user.nil? then
           @logger.info "deleting from roster user with jid #{jid}"
           item.remove
-          next
         elsif item.subscription != :both then
           @logger.info "deleting from roster&database user with jid #{jid}"
           item.remove
@@ -190,11 +189,19 @@ module Rumpy
       end
     end
 
+    def find_by_jid(jid)
+      @main_model.find_by_jid msg.from
+    end
+
+    def reconnect!
+      @main_model.connection.reconnect!
+    end
+
     def start_message_callback
       @client.add_message_callback do |msg|
         begin
           if msg.type != :error and msg.body and msg.from then
-            if user = @main_model.find_by_jid(msg.from) then
+            if user = find_by_jid(msg.from) then
               @logger.debug "get normal message from #{msg.from}"
               pars_results = parser_func msg.body
               @logger.debug "parsed message: #{pars_results.inspect}"
@@ -214,7 +221,7 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched!'
           @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
+          reconnect!
           retry
         rescue => e
           @logger.error e.inspect
