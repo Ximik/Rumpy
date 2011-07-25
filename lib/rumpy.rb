@@ -82,7 +82,7 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched'
           @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
+          reconnect!
           retry
         rescue => e
           $logger.error e.inspect
@@ -183,14 +183,14 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched'
           @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
+          reconnect!
           retry
         end
       end
     end
 
     def find_by_jid(jid)
-      @main_model.find_by_jid msg.from
+      @main_model.find_by_jid jid
     end
 
     def reconnect!
