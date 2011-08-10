@@ -67,8 +67,9 @@ module Rumpy
       connect
       @logger.debug 'clear wrong users'
       clear_users
-      start_subscription_callback
-      start_message_callback
+      set_subscription_callback
+      set_message_callback
+      set_iq_callback
       @logger.info 'Bot is going ONLINE'
       @client.send Jabber::Presence.new.set_priority(@priority).set_status(@status)
 
@@ -82,7 +83,7 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched'
           @logger.info 'Reconnecting to database'
-          reconnect!
+          reconnect_db!
           retry
         rescue => e
           $logger.error e.inspect
@@ -149,7 +150,7 @@ module Rumpy
         end
       end
       @roster.items.each do |jid, item|
-        user = @main_model.find_by_jid jid
+        user = find_user_by_jid jid
         if user.nil? then
           @logger.info "deleting from roster user with jid #{jid}"
           item.remove
@@ -161,7 +162,7 @@ module Rumpy
       end
     end
 
-    def start_subscription_callback
+    def set_subscription_callback
       @roster.add_subscription_request_callback do |item, presence|
         jid = presence.from
         @roster.accept_subscription jid
@@ -183,25 +184,25 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched'
           @logger.info 'Reconnecting to database'
-          reconnect!
+          reconnect_db!
           retry
         end
       end
     end
 
-    def find_by_jid(jid)
+    def find_user_by_jid(jid)
       @main_model.find_by_jid jid
     end
 
-    def reconnect!
+    def reconnect_db!
       @main_model.connection.reconnect!
     end
 
-    def start_message_callback
+    def set_message_callback
       @client.add_message_callback do |msg|
         begin
           if msg.type != :error and msg.body and msg.from then
-            if user = find_by_jid(msg.from) then
+            if user = find_user_by_jid(msg.from) then
               @logger.debug "get normal message from #{msg.from}"
               pars_results = parser_func msg.body
               @logger.debug "parsed message: #{pars_results.inspect}"
@@ -221,13 +222,16 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched!'
           @logger.info 'Reconnecting to database'
-          reconnect!
+          reconnect_db!
           retry
         rescue => e
           @logger.error e.inspect
           @logger.error e.backtrace
         end
       end
+    end
+
+    def set_iq_callback
       @client.add_iq_callback do |iq|
         @logger.debug "got iq #{iq.inspect}"
         if iq.type == :get then # hack for pidgin (STOP USING IT)
