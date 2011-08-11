@@ -3,7 +3,6 @@ require 'xmpp4r/client'
 require 'xmpp4r/roster'
 require 'xmpp4r/version'
 require 'active_record'
-require 'active_record/validations'
 require 'logger'
 
 module Rumpy
@@ -144,7 +143,7 @@ module Rumpy
     def clear_users
       @main_model.find_each do |user|
         items = @roster.find user.jid
-        if items.count != 1 then
+        if items.count.zero? then
           @logger.info "deleting from database user with jid #{user.jid}"
           user.destroy
         end
@@ -160,6 +159,7 @@ module Rumpy
           user.destroy
         end
       end
+      @main_model.connection_pool.release_connection
     end
 
     def set_subscription_callback
