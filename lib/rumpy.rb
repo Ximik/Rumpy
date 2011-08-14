@@ -4,11 +4,9 @@ require 'xmpp4r/roster'
 require 'xmpp4r/version'
 require 'active_record'
 require 'logger'
-require 'thread'
 
 module Rumpy
 
-  # Creating new bot and detaching it
   def self.start(botclass)
     bot = botclass.new
     pf = pid_file bot
@@ -23,7 +21,6 @@ module Rumpy
     true
   end
 
-  # Killing bot that was detached
   def self.stop(botclass)
     pf = pid_file botclass.new
     return false unless File.exist? pf
@@ -37,13 +34,10 @@ module Rumpy
     true
   end
 
-  # Run bot without detaching
   def self.run(botclass)
     botclass.new.start
   end
 
-  # If bot has instance variable @pid_file than pidfile equals it, else
-  # it equals (name_of_bot's_class + .pid)
   def self.pid_file(bot)
     pid_file = bot.pid_file
     pid_file = bot.class.to_s.downcase + '.pid' if pid_file.nil?
@@ -88,48 +82,13 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched'
           @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
+          reconnect_db!
           retry
         rescue => e
           $logger.error e.inspect
           $logger.error e.backtrace
         end
       end if self.respond_to? :backend_func
-
-      Thread.new do
-        loop do
-          msg = @queue.deq
-
-          begin
-            if msg.type != :error and msg.body and msg.from then
-              if user = @main_model.find_by_jid(msg.from) then
-                @logger.debug "get normal message from #{msg.from}"
-                pars_results = parser_func msg.body
-                @logger.debug "parsed message: #{pars_results.inspect}"
-
-                message = ""
-                #@mutexes[user.jid].synchronize do
-                message = do_func user, pars_results
-              #end
-                send_msg msg.from, message
-              else
-                @logger.debug "uknown user #{msg.from}"
-                send_msg msg.from, @lang['stranger']
-                items = @roster.find msg.from.strip.to_s
-                items.first.last.remove unless items.empty?
-              end
-            end
-          rescue ActiveRecord::StatementInvalid
-            @logger.warn 'Statement Invalid catched!'
-            @logger.info 'Reconnecting to database'
-            @main_model.connection.reconnect!
-            retry
-          rescue => e
-            @logger.error e.inspect
-            @logger.error e.backtrace
-          end
-        end
-      end
       Thread.stop
     end
 
@@ -168,10 +127,9 @@ module Rumpy
         super jid.strip.to_s
       end
 
-      #@mutexes = Hash.new do |h, k|
-        #h[k] = Mutex.new
-      #end
-      @queue = Queue.new
+      @mutexes = Hash.new do |h, k|
+        h[k] = Mutex.new
+      end
     end
 
     def connect
@@ -191,7 +149,7 @@ module Rumpy
         end
       end
       @roster.items.each do |jid, item|
-        user = @main_model.find_by_jid jid
+        user = find_user_by_jid jid
         if user.nil? then
           @logger.info "deleting from roster user with jid #{jid}"
           item.remove
@@ -226,15 +184,50 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched'
           @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
+          reconnect_db!
           retry
         end
       end
     end
 
+    def find_user_by_jid(jid)
+      @main_model.find_by_jid jid
+    end
+
+    def reconnect_db!
+      @main_model.connection.reconnect!
+    end
+
     def set_message_callback
       @client.add_message_callback do |msg|
-        @queue.enq msg
+        begin
+          if msg.type != :error and msg.body and msg.from then
+            if user = find_user_by_jid(msg.from) then
+              @logger.debug "get normal message from #{msg.from}"
+              pars_results = parser_func msg.body
+              @logger.debug "parsed message: #{pars_results.inspect}"
+
+              message = ""
+              @mutexes[user.jid].synchronize do
+                message = do_func user, pars_results
+              end
+              send_msg msg.from, message
+            else
+              @logger.debug "uknown user #{msg.from}"
+              send_msg msg.from, @lang['stranger']
+              items = @roster.find msg.from.strip.to_s
+              items.first.last.remove unless items.empty?
+            end
+          end
+        rescue ActiveRecord::StatementInvalid
+          @logger.warn 'Statement Invalid catched!'
+          @logger.info 'Reconnecting to database'
+          reconnect_db!
+          retry
+        rescue => e
+          @logger.error e.inspect
+          @logger.error e.backtrace
+        end
       end
     end
 
