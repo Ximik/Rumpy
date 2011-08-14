@@ -94,7 +94,7 @@ module Rumpy
       Thread.new do
         usermq.thread = Thread.current
         loop do
-          Thread.stop if usermq.queue.empty?
+          #Thread.stop if usermq.queue.empty?
           msg = usermq.queue.deq
 
           begin
@@ -239,7 +239,7 @@ module Rumpy
           when :unsubscribed, :unsubscribe
             @mqs[item.jid.strip.to_s].queue.enq :unsubscribe
             @mqs[item.jid.strip.to_s].queue.enq item
-            @mqs[item.jid.strip.to_s].thread.run
+            #@mqs[item.jid.strip.to_s].thread.run
           when :subscribed
             add_jid item.jid
             send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
@@ -260,7 +260,7 @@ module Rumpy
             @logger.debug "got normal message from #{msg.from}"
 
             @mqs[msg.from.strip.to_s].queue.enq msg
-            @mqs[msg.from.strip.to_s].thread.run
+            #@mqs[msg.from.strip.to_s].thread.run
           else # if @roster[msg.from] and @roster[msg.from].subscription == :both
             @logger.debug "user not in roster: #{msg.from}"
 
