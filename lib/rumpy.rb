@@ -237,7 +237,6 @@ module Rumpy
         begin
           case presence.type
           when :unsubscribed, :unsubscribe
-            @mqs[item.jid.strip.to_s].thread.stop
             @mqs[item.jid.strip.to_s].queue.enq :unsubscribe
             @mqs[item.jid.strip.to_s].queue.enq item
             @mqs[item.jid.strip.to_s].thread.run
