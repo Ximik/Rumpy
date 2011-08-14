@@ -145,10 +145,6 @@ module Rumpy
       def @main_model.find_by_jid(jid)
         super jid.strip.to_s
       end
-
-      @mutexes = Hash.new do |h, k|
-        h[k] = Mutex.new
-      end
     end
 
     def connect
@@ -226,10 +222,7 @@ module Rumpy
               pars_results = parser_func msg.body
               @logger.debug "parsed message: #{pars_results.inspect}"
 
-              message = ""
-              @mutexes[user.jid].synchronize do
-                message = do_func user, pars_results
-              end
+              message = do_func user, pars_results
               send_msg msg.from, message
             else
               @logger.debug "uknown user #{msg.from}"
