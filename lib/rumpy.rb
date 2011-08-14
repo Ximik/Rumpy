@@ -219,36 +219,81 @@ module Rumpy
 
     def set_message_callback
       @client.add_message_callback do |msg|
-        begin
-          if msg.type != :error and msg.body and msg.from then
-            if user = find_user_by_jid(msg.from) then
-              @logger.debug "get normal message from #{msg.from}"
-              pars_results = parser_func msg.body
-              @logger.debug "parsed message: #{pars_results.inspect}"
+        if msg.type != :error and msg.body and msg.from then
+          if @roster[msg.from] and @roster[msg.from].subscription == :both then
+            @logger.debug "get normal message from #{msg.from}"
 
-              message = ""
-              @mutexes[user.jid].synchronize do
-                message = do_func user, pars_results
-              end
-              send_msg msg.from, message
-            else
-              @logger.debug "uknown user #{msg.from}"
-              send_msg msg.from, @lang['stranger']
-              items = @roster.find msg.from.strip.to_s
-              items.first.last.remove unless items.empty?
-            end
-          end
-        rescue ActiveRecord::StatementInvalid
-          @logger.warn 'Statement Invalid catched!'
-          @logger.info 'Reconnecting to database'
-          reconnect_db!
-          retry
-        rescue => e
-          @logger.error e.inspect
-          @logger.error e.backtrace
-        end
-      end
-    end
+            @mutexes[msg.from.strip.to_s].synchronize do
+              Thread.new(msg) do |msg|
+                @mutexes[msg.from.strip.to_s].lock
+                begin
+                  if user = find_user_by_jid(msg.from) then
+                    pars_results = parser_func msg.body
+                    @logger.debug "parsed message: #{pars_results.inspect}"
+                    message = do_func user, pars_results
+                    send_msg msg.from, message
+                  else # user = find_user_by_jid(msg.from)
+                    @logger.debug "user not in base #{msg.from}"
+                    send_msg msg.from, @lang['stranger']
+                  end # user = find_user_by_jid(msg.from)
+                rescue ActiveRecord::StatementInvalid
+                  @logger.warn 'Statement Invalid catched!'
+                  @logger.info 'Reconnecting to database'
+                  reconnect_db!
+                  retry
+                rescue ActiveRecord::ConnectionTimeoutError
+                  @logger.warn 'ActiveRecord::ConnectionTimeoutError'
+                  @logger.info 'sleep and retry again'
+                  sleep 3
+                  retry
+                rescue => e
+                  @logger.error e.inspect
+                  @logger.error e.backtrace
+                end # begin
+                @mutexes[msg.from.strip.to_s].unlock
+              end # Thread.new do
+            end # @mutexes[user.jid].synchronize
+
+          else # if @roster[msg.from] and @roster[msg.from].subscription == :both
+            @logger.debug "user not in roster #{msg.from}"
+            send_msg msg.from, @lang['stranger']
+          end # if @roster[msg.from] and @roster[msg.from].subscription == :both
+        end # if msg.type != :error and msg.body and msg.from
+      end # @client.add_message_callback
+    end # def set_message_callback
+
+    #def set_message_callback
+      #@client.add_message_callback do |msg|
+        #begin
+          #if msg.type != :error and msg.body and msg.from then
+            #if user = find_user_by_jid(msg.from) then
+              #@logger.debug "get normal message from #{msg.from}"
+              #pars_results = parser_func msg.body
+              #@logger.debug "parsed message: #{pars_results.inspect}"
+
+              #message = ""
+              #@mutexes[user.jid].synchronize do
+                #message = do_func user, pars_results
+              #end
+              #send_msg msg.from, message
+            #else
+              #@logger.debug "uknown user #{msg.from}"
+              #send_msg msg.from, @lang['stranger']
+              #items = @roster.find msg.from.strip.to_s
+              #items.first.last.remove unless items.empty?
+            #end
+          #end
+        #rescue ActiveRecord::StatementInvalid
+          #@logger.warn 'Statement Invalid catched!'
+          #@logger.info 'Reconnecting to database'
+          #reconnect_db!
+          #retry
+        #rescue => e
+          #@logger.error e.inspect
+          #@logger.error e.backtrace
+        #end
+      #end
+    #end
 
     def set_iq_callback
       @client.add_iq_callback do |iq|
