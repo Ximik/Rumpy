@@ -50,13 +50,9 @@ module Rumpy
     pid_file
   end
 
-  # include this module into your bot's class
   module Bot
     attr_reader :pid_file
 
-    # one and only public function, defined in this module
-    # simply initializes bot's variables, connection, etc.
-    # and starts bot
     def start
       @log_file             ||= STDERR
       @log_level            ||= Logger::INFO
@@ -79,19 +75,9 @@ module Rumpy
       set_subscription_callback
       set_message_callback
       set_iq_callback
-
-      start_backend_thread
-      start_message_thread
-
       @logger.info 'Bot is going ONLINE'
       @client.send Jabber::Presence.new.set_priority(@priority).set_status(@status)
 
-      Thread.stop
-    end
-
-    private
-
-    def start_backend_thread
       Thread.new do
         begin
           loop do
@@ -109,9 +95,7 @@ module Rumpy
           $logger.error e.backtrace
         end
       end if self.respond_to? :backend_func
-    end
 
-    def start_message_thread
       Thread.new do
         loop do
           msg = @queue.deq
@@ -123,7 +107,10 @@ module Rumpy
                 pars_results = parser_func msg.body
                 @logger.debug "parsed message: #{pars_results.inspect}"
 
+                message = ""
+                #@mutexes[user.jid].synchronize do
                 message = do_func user, pars_results
+              #end
                 send_msg msg.from, message
               else
                 @logger.debug "uknown user #{msg.from}"
@@ -143,7 +130,10 @@ module Rumpy
           end
         end
       end
+      Thread.stop
     end
+
+    private
 
     def init
 
@@ -178,6 +168,9 @@ module Rumpy
         super jid.strip.to_s
       end
 
+      #@mutexes = Hash.new do |h, k|
+        #h[k] = Mutex.new
+      #end
       @queue = Queue.new
     end
 
