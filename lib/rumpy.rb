@@ -105,7 +105,7 @@ module Rumpy
             rescue ActiveRecord::StatementInvalid
               @logger.warn 'Statement Invalid catched!'
               @logger.info 'Reconnecting to database'
-              reconnect_db!
+              @main_model.connection.reconnect!
               retry
             rescue ActiveRecord::ConnectionTimeoutError
               @logger.warn 'ActiveRecord::ConnectionTimeoutError'
@@ -132,7 +132,7 @@ module Rumpy
         rescue ActiveRecord::StatementInvalid
           @logger.warn 'Statement Invalid catched'
           @logger.info 'Reconnecting to database'
-          reconnect_db!
+          @main_model.connection.reconnect!
           retry
         rescue => e
           $logger.error e.inspect
@@ -196,7 +196,7 @@ module Rumpy
       @logger.debug 'clear wrong users'
 
       @roster.items.each do |jid, item|
-        user = find_user_by_jid jid
+        user = @main_model.find_by_jid jid
         if user.nil? or item.subscription != :both then
           @logger.info "deleting from roster user with jid #{jid}"
           item.remove
@@ -240,19 +240,11 @@ module Rumpy
           rescue ActiveRecord::StatementInvalid
             @logger.warn 'Statement Invalid catched'
             @logger.info 'Reconnecting to database'
-            reconnect_db!
+            @main_model.connection.reconnect!
             retry
           end
         end
       end
-    end
-
-    def find_user_by_jid(jid)
-      @main_model.find_by_jid jid
-    end
-
-    def reconnect_db!
-      @main_model.connection.reconnect!
     end
 
     def set_message_callback
