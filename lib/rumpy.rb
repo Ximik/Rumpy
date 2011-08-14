@@ -4,7 +4,6 @@ require 'xmpp4r/roster'
 require 'xmpp4r/version'
 require 'active_record'
 require 'logger'
-require 'thread'
 
 module Rumpy
 
@@ -226,23 +225,23 @@ module Rumpy
         @logger.info "#{jid} just subscribed"
       end
       @roster.add_subscription_callback do |item, presence|
-        @mqs[item.jid.strip.to_s].mutex.synchronize do
-          begin
-            case presence.type
-            when :unsubscribed, :unsubscribe
-              @logger.info "#{item.jid} wanna unsubscribe"
-              item.remove
-              remove_jid item.jid
-            when :subscribed
-              add_jid item.jid
-              send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
-            end
-          rescue ActiveRecord::StatementInvalid
-            @logger.warn 'Statement Invalid catched'
-            @logger.info 'Reconnecting to database'
-            @main_model.connection.reconnect!
-            retry
+        begin
+          case presence.type
+          when :unsubscribed, :unsubscribe
+            @mqs[item.jid.strip.to_s].queue.clear
+            @mqs[item.jid.strip.to_s].mutex.lock
+            @logger.info "#{item.jid} wanna unsubscribe"
+            item.remove
+            remove_jid item.jid
+          when :subscribed
+            add_jid item.jid
+            send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
           end
+        rescue ActiveRecord::StatementInvalid
+          @logger.warn 'Statement Invalid catched'
+          @logger.info 'Reconnecting to database'
+          @main_model.connection.reconnect!
+          retry
         end
       end
     end
