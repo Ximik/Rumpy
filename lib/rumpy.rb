@@ -90,66 +90,6 @@ module Rumpy
 
     private
 
-    def start_user_thread(usermq)
-      Thread.new do
-        usermq.thread = Thread.current
-        loop do
-          #Thread.stop if usermq.queue.empty?
-          msg = usermq.queue.deq
-
-          begin
-            if msg == :unsubscribe then
-              item = usermq.queue.deq
-              @logger.info "#{item.jid} wanna unsubscribe"
-              item.remove
-              remove_jid item.jid
-            end
-
-            user = @main_model.find_by_jid msg.from
-
-            pars_results = parser_func msg.body
-            @logger.debug "parsed message: #{pars_results.inspect}"
-            send_msg msg.answer.set_body do_func(user, pars_results)
-          rescue ActiveRecord::StatementInvalid
-            @logger.warn 'Statement Invalid catched!'
-            @logger.info 'Reconnecting to database'
-            @main_model.connection.reconnect!
-            retry
-          rescue ActiveRecord::ConnectionTimeoutError
-            @logger.warn 'ActiveRecord::ConnectionTimeoutError'
-            @logger.info 'sleep and retry again'
-            sleep 3
-            retry
-          rescue => e
-            @logger.error e.inspect
-            @logger.error e.backtrace
-          end # begin
-
-          @main_model.connection_pool.release_connection
-        end # loop do
-      end # Thread.new do
-    end # def start_user_thread(usermq)
-
-    def start_backend_thread
-      Thread.new do
-        begin
-          loop do
-            backend_func().each do |result|
-              send_msg Jabber::Message.new(*result).set_type :chat
-            end
-          end
-        rescue ActiveRecord::StatementInvalid
-          @logger.warn 'Statement Invalid catched'
-          @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
-          retry
-        rescue => e
-          $logger.error e.inspect
-          $logger.error e.backtrace
-        end # begin
-      end if self.respond_to? :backend_func
-    end # def start_backend_thread
-
     def init
       @logger.debug 'initializing some variables'
 
@@ -291,6 +231,66 @@ module Rumpy
       end
     end # def set_iq_callback
 
+    def start_backend_thread
+      Thread.new do
+        begin
+          loop do
+            backend_func().each do |result|
+              send_msg Jabber::Message.new(*result).set_type :chat
+            end
+          end
+        rescue ActiveRecord::StatementInvalid
+          @logger.warn 'Statement Invalid catched'
+          @logger.info 'Reconnecting to database'
+          @main_model.connection.reconnect!
+          retry
+        rescue => e
+          $logger.error e.inspect
+          $logger.error e.backtrace
+        end # begin
+      end if self.respond_to? :backend_func
+    end # def start_backend_thread
+
+    def start_user_thread(usermq)
+      Thread.new do
+        usermq.thread = Thread.current
+        loop do
+          #Thread.stop if usermq.queue.empty?
+          msg = usermq.queue.deq
+
+          begin
+            if msg == :unsubscribe then
+              item = usermq.queue.deq
+              @logger.info "#{item.jid} wanna unsubscribe"
+              item.remove
+              remove_jid item.jid
+            end
+
+            user = @main_model.find_by_jid msg.from
+
+            pars_results = parser_func msg.body
+            @logger.debug "parsed message: #{pars_results.inspect}"
+            send_msg msg.answer.set_body do_func(user, pars_results)
+          rescue ActiveRecord::StatementInvalid
+            @logger.warn 'Statement Invalid catched!'
+            @logger.info 'Reconnecting to database'
+            @main_model.connection.reconnect!
+            retry
+          rescue ActiveRecord::ConnectionTimeoutError
+            @logger.warn 'ActiveRecord::ConnectionTimeoutError'
+            @logger.info 'sleep and retry again'
+            sleep 3
+            retry
+          rescue => e
+            @logger.error e.inspect
+            @logger.error e.backtrace
+          end # begin
+
+          @main_model.connection_pool.release_connection
+        end # loop do
+      end # Thread.new do
+    end # def start_user_thread(usermq)
+
     def send_msg(msg)
       return if msg.nil?
       @logger.debug "sending message: #{msg}"
@@ -310,12 +310,10 @@ module Rumpy
       unless user.nil?
         @logger.info "removing user #{jid}"
 
-        Thread.new do
-          @mqs[user.jid].thread.kill
-          @mqs.delete user.jid
+        @mqs.delete user.jid
 
-          user.destroy
-        end
+        user.destroy
+        Thread.current.kill
       end
     end
   end # module Rumpy::Bot
