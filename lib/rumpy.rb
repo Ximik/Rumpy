@@ -96,6 +96,12 @@ module Rumpy
         loop do
           Thread.stop if usermq.queue.empty?
           msg = usermq.queue.deq
+
+          if msg == :unsubscribe then
+            @logger.info "#{item.jid} wanna unsubscribe"
+            item.remove
+            remove_jid item.jid
+          end
           usermq.mutex.synchronize do
             begin
               pars_results = parser_func msg.body
@@ -228,11 +234,7 @@ module Rumpy
         begin
           case presence.type
           when :unsubscribed, :unsubscribe
-            @mqs[item.jid.strip.to_s].queue.clear
-            @mqs[item.jid.strip.to_s].mutex.lock
-            @logger.info "#{item.jid} wanna unsubscribe"
-            item.remove
-            remove_jid item.jid
+            @mqs[item.jid.strip.to_s].queue.enq :unsubscribe
           when :subscribed
             add_jid item.jid
             send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
@@ -305,6 +307,8 @@ module Rumpy
         @logger.info "removing user #{jid}"
 
         @mqs[user.jid].thread.kill
+        @mqs.delete user.jid
+
         user.destroy
       end
     end
