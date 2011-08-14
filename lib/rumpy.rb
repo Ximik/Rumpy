@@ -97,16 +97,19 @@ module Rumpy
           Thread.stop if usermq.queue.empty?
           msg = usermq.queue.deq
 
-          if msg == :unsubscribe then
-            @logger.info "#{item.jid} wanna unsubscribe"
-            item.remove
-            remove_jid item.jid
-          end
-
           begin
+            if msg == :unsubscribe then
+              item = usermq.queue.deq
+              @logger.info "#{item.jid} wanna unsubscribe"
+              item.remove
+              remove_jid item.jid
+            end
+
+            user = @main_model.find_by_jid msg.from
+
             pars_results = parser_func msg.body
             @logger.debug "parsed message: #{pars_results.inspect}"
-            send_msg msg.answer.set_body do_func(usermq.user, pars_results)
+            send_msg msg.answer.set_body do_func(user, pars_results)
           rescue ActiveRecord::StatementInvalid
             @logger.warn 'Statement Invalid catched!'
             @logger.info 'Reconnecting to database'
@@ -121,6 +124,8 @@ module Rumpy
             @logger.error e.inspect
             @logger.error e.backtrace
           end # begin
+
+          @main_model.connection_pool.release_connection
         end # loop do
       end # Thread.new do
     end # def start_user_thread(usermq)
@@ -179,9 +184,9 @@ module Rumpy
         super jid.strip.to_s
       end
 
-      Struct.new "UserMQT", :user, :queue, :thread
+      Struct.new "UserMQT", :queue, :thread
       @mqs = Hash.new do |h, k|
-        h[k] = Struct::UserMQT.new nil, Queue.new, nil
+        h[k] = Struct::UserMQT.new Queue.new, nil
       end
     end # def init
 
@@ -212,7 +217,6 @@ module Rumpy
           @logger.info "deleting from database user with jid #{user.jid}"
           user.destroy
         else
-          @mqs[user.jid].user = user
           start_user_thread @mqs[user.jid]
         end
       end
@@ -233,7 +237,9 @@ module Rumpy
         begin
           case presence.type
           when :unsubscribed, :unsubscribe
+            @mqs[item.jid.strip.to_s].thread.stop
             @mqs[item.jid.strip.to_s].queue.enq :unsubscribe
+            @mqs[item.jid.strip.to_s].queue.enq item
             @mqs[item.jid.strip.to_s].thread.run
           when :subscribed
             add_jid item.jid
@@ -296,7 +302,6 @@ module Rumpy
       user = @main_model.new
       user.jid = jid.strip.to_s
       user.save
-      @mqs[user.jid].user = user
       start_user_thread @mqs[user.jid]
       @logger.info "added new user: #{jid}"
     end
