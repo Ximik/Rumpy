@@ -1,9 +1,9 @@
 Gem::Specification.new do |s|
   s.name              = 'rumpy'
-  s.version           = '0.9.12'
+  s.version           = '0.9.13'
 
   s.authors           = [ 'Tsokurov A.G.', 'Pogoda M.V.' ]
-  s.date              = '2011-08-10'
+  s.date              = Time.now.strftime '%Y-%m-%d'
   s.description       = 'Rumpy is some kind of framework to make up your own jabber bot quickly.'
 
   s.email             = [ 'mpogoda@lavabit.com', 'me@ximik.net' ]

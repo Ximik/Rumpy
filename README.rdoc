@@ -30,6 +30,7 @@ Our goal is 'DO NOT REINVENT THE WHEEL'.
     @pid_file     ::  Optional variable, sets location of the file to which pid of detached process will be saved. If not set, it equals NameOfYourBotClass.downcase + '.pid'.
     @log_file     ::  Optional variable, sets location of the file for errors. Default is STDERR.
     @log_level    ::  Optional variable, sets the verbosity of log. Possible values are Logger::DEBUG < Logger::INFO < Logger::WARN < Logger::ERROR < Logger::FATAL < Logger::UNKNOWN. Default is Logger::INFO
+    @logger       ::  If you wanna specify more parameters to logger, you always can create logger yourself. If this variable set, @log_file & @log_level are ignored.
     @bot_name     ::  Optional name of the bot. Default is name of bot's class.
     @bot_version  ::  Optional version of the bot. Default is 1.0.0.
   * Write 3 methods:

@@ -7,6 +7,8 @@ require 'logger'
 
 module Rumpy
 
+  # Create new instance of `botclass`, start it in new process,
+  # detach this process and save the pid of process in pid_file
   def self.start(botclass)
     bot = botclass.new
     pf = pid_file bot
@@ -21,6 +23,8 @@ module Rumpy
     true
   end
 
+  # Determine the name of pid_file, read pid from this file
+  # and try to kill process with this pid
   def self.stop(botclass)
     pf = pid_file botclass.new
     return false unless File.exist? pf
@@ -34,10 +38,12 @@ module Rumpy
     true
   end
 
+  # Create new instance of `botclass` and start it without detaching
   def self.run(botclass)
     botclass.new.start
   end
 
+  # Determine the name of file where thid pid will stored to
   def self.pid_file(bot)
     pid_file = bot.pid_file
     pid_file = bot.class.to_s.downcase + '.pid' if pid_file.nil?
@@ -52,11 +58,13 @@ module Rumpy
     # simply initializes bot's variables, connection, etc.
     # and starts bot
     def start
-      @log_file             ||= STDERR
-      @log_level            ||= Logger::INFO
-      @logger                 = Logger.new @log_file
-      @logger.level           = @log_level
-      @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
+      if @logger.nil? then # if user haven't created his own logger
+        @log_file             ||= STDERR
+        @log_level            ||= Logger::INFO
+        @logger                 = Logger.new @log_file
+        @logger.level           = @log_level
+        @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
+      end
       Signal.trap :TERM do |signo|
         @logger.info 'terminating'
         @logger.close
@@ -70,6 +78,7 @@ module Rumpy
       connect
       @logger.debug 'clear wrong users'
       clear_users
+
       set_subscription_callback
       set_message_callback
       set_iq_callback
@@ -137,13 +146,9 @@ module Rumpy
         super jid.strip.to_s
       end
 
-<<<<<<< HEAD
       @mutexes = Hash.new do |h, k|
         h[k] = Mutex.new
       end
-=======
-      @queue = Queue.new
->>>>>>> parent of a7675b7... Revert "clearclear"
     end
 
     def connect
