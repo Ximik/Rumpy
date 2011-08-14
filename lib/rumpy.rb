@@ -311,10 +311,12 @@ module Rumpy
       unless user.nil?
         @logger.info "removing user #{jid}"
 
-        @mqs[user.jid].thread.kill
-        @mqs.delete user.jid
+        Thread.new do
+          @mqs[user.jid].thread.kill
+          @mqs.delete user.jid
 
-        user.destroy
+          user.destroy
+        end
       end
     end
   end # module Rumpy::Bot
