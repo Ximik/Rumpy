@@ -21,7 +21,7 @@ module Rumpy
       file.puts pid
     end
     true
-  end
+  end # def self.start(botclass)
 
   # Determine the name of pid_file, read pid from this file
   # and try to kill process with this pid
@@ -36,7 +36,7 @@ module Rumpy
       File.unlink pf
     end
     true
-  end
+  end # def self.stop(botclass)
 
   # Create new instance of `botclass` and start it without detaching
   def self.run(botclass)
@@ -74,7 +74,7 @@ module Rumpy
       @logger.info 'starting bot'
       init
       connect
-      clear_users
+      prepare_users
 
       set_subscription_callback
       set_message_callback
@@ -86,7 +86,7 @@ module Rumpy
       @client.send Jabber::Presence.new.set_priority(@priority).set_status(@status)
 
       Thread.stop
-    end
+    end # def start
 
     private
 
@@ -102,29 +102,28 @@ module Rumpy
             item.remove
             remove_jid item.jid
           end
-          usermq.mutex.synchronize do
-            begin
-              pars_results = parser_func msg.body
-              @logger.debug "parsed message: #{pars_results.inspect}"
-              send_msg msg.answer.set_body do_func(usermq.user, pars_results)
-            rescue ActiveRecord::StatementInvalid
-              @logger.warn 'Statement Invalid catched!'
-              @logger.info 'Reconnecting to database'
-              @main_model.connection.reconnect!
-              retry
-            rescue ActiveRecord::ConnectionTimeoutError
-              @logger.warn 'ActiveRecord::ConnectionTimeoutError'
-              @logger.info 'sleep and retry again'
-              sleep 3
-              retry
-            rescue => e
-              @logger.error e.inspect
-              @logger.error e.backtrace
-            end # begin
-          end # synchronize
-        end
-      end
-    end
+
+          begin
+            pars_results = parser_func msg.body
+            @logger.debug "parsed message: #{pars_results.inspect}"
+            send_msg msg.answer.set_body do_func(usermq.user, pars_results)
+          rescue ActiveRecord::StatementInvalid
+            @logger.warn 'Statement Invalid catched!'
+            @logger.info 'Reconnecting to database'
+            @main_model.connection.reconnect!
+            retry
+          rescue ActiveRecord::ConnectionTimeoutError
+            @logger.warn 'ActiveRecord::ConnectionTimeoutError'
+            @logger.info 'sleep and retry again'
+            sleep 3
+            retry
+          rescue => e
+            @logger.error e.inspect
+            @logger.error e.backtrace
+          end # begin
+        end # loop do
+      end # Thread.new do
+    end # def start_user_thread(usermq)
 
     def start_backend_thread
       Thread.new do
@@ -142,9 +141,9 @@ module Rumpy
         rescue => e
           $logger.error e.inspect
           $logger.error e.backtrace
-        end
+        end # begin
       end if self.respond_to? :backend_func
-    end
+    end # def start_backend_thread
 
     def init
       @logger.debug 'initializing some variables'
@@ -180,11 +179,11 @@ module Rumpy
         super jid.strip.to_s
       end
 
-      Struct.new "UserMQT", :user, :mutex, :queue, :thread
+      Struct.new "UserMQT", :user, :queue, :thread
       @mqs = Hash.new do |h, k|
-        h[k] = Struct::UserMQT.new nil, Mutex.new, Queue.new, nil
+        h[k] = Struct::UserMQT.new nil, Queue.new, nil
       end
-    end
+    end # def init
 
     def connect
       @logger.debug 'establishing xmpp connection'
@@ -197,7 +196,7 @@ module Rumpy
       @logger.info 'xmpp connection established'
     end
 
-    def clear_users
+    def prepare_users
       @logger.debug 'clear wrong users'
 
       @roster.items.each do |jid, item|
@@ -219,7 +218,7 @@ module Rumpy
       end
 
       @main_model.connection_pool.release_connection
-    end
+    end # def prepare_users
 
     def set_subscription_callback
       @roster.add_subscription_request_callback do |item, presence|
@@ -235,6 +234,7 @@ module Rumpy
           case presence.type
           when :unsubscribed, :unsubscribe
             @mqs[item.jid.strip.to_s].queue.enq :unsubscribe
+            @mqs[item.jid.strip.to_s].thread.run
           when :subscribed
             add_jid item.jid
             send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
@@ -246,7 +246,7 @@ module Rumpy
           retry
         end
       end
-    end
+    end # def set_subscription_callback
 
     def set_message_callback
       @client.add_message_callback do |msg|
@@ -263,14 +263,14 @@ module Rumpy
           end # if @roster[msg.from] and @roster[msg.from].subscription == :both
         end # if msg.type != :error and msg.body and msg.from
       end # @client.add_message_callback
-    end # def set_message_callback    
+    end # def set_message_callback
 
     def set_iq_callback
       @client.add_iq_callback do |iq|
         @logger.debug "got iq #{iq}"
         if iq.type == :get then # hack for pidgin (STOP USING IT)
           response = iq.answer true
-          if iq.elements["time"] == "<time xmlns='urn:xmpp:time'/>" then
+          if iq.elements['time'] == "<time xmlns='urn:xmpp:time'/>" then
             @logger.debug 'this is time request, okay'
             response.set_type :result
             tm = Time.now
@@ -280,11 +280,11 @@ module Rumpy
             response.elements['time/utc'].text = tm.utc.xmlschema
           else
             response.set_type :error
-          end
+          end # if iq.elements['time']
           send_msg response
         end
       end
-    end
+    end # def set_iq_callback
 
     def send_msg(msg)
       return if msg.nil?
@@ -312,5 +312,5 @@ module Rumpy
         user.destroy
       end
     end
-  end
-end
+  end # module Rumpy::Bot
+end # module Rumpy
