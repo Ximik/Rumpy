@@ -95,6 +95,7 @@ module Rumpy
       Thread.new do
         usermq.thread = Thread.current
         loop do
+          Thread.stop if usermq.queue.empty?
           msg = usermq.queue.deq
           usermq.mutex.synchronize do
             begin
@@ -125,7 +126,7 @@ module Rumpy
         begin
           loop do
             backend_func().each do |result|
-              send_msg Jabber::Message.new(*result).set_type :char
+              send_msg Jabber::Message.new(*result).set_type :chat
             end
           end
         rescue ActiveRecord::StatementInvalid
@@ -261,6 +262,7 @@ module Rumpy
             @logger.debug "got normal message from #{msg.from}"
 
             @mqs[msg.from.strip.to_s].queue.enq msg
+            @mqs[msg.from.strip.to_s].thread.run
           else # if @roster[msg.from] and @roster[msg.from].subscription == :both
             @logger.debug "user not in roster: #{msg.from}"
 
