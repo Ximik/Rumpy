@@ -54,17 +54,18 @@ module Rumpy
   module Bot
     attr_reader :pid_file
 
+
     # one and only public function, defined in this module
     # simply initializes bot's variables, connection, etc.
     # and starts bot
     def start
-      if @logger.nil? then # if user haven't created his own logger
-        @log_file             ||= STDERR
-        @log_level            ||= Logger::INFO
-        @logger                 = Logger.new @log_file
-        @logger.level           = @log_level
-        @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
-      end
+      @log_file             ||= STDERR
+      @log_level            ||= Logger::INFO
+      @logger                 = Logger.new @log_file, @log_shift_age, @log_shift_size
+      @logger.level           = @log_level
+      @logger.progname        = @log_progname
+      @logger.formatter       = @log_formatter
+      @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
 
       @logger.info 'starting bot'
       init
@@ -78,7 +79,7 @@ module Rumpy
       start_backend_thread
 
       @logger.info 'Bot is going ONLINE'
-      send_msg Jabber::Presence.new(nil ,@status, @priority)
+      send_msg Jabber::Presence.new(nil, @status, @priority)
 
       Signal.trap :TERM do |signo|
         @logger.info 'Bot is unavailable'
@@ -98,6 +99,9 @@ module Rumpy
       end
 
       Thread.stop
+    rescue => e
+      general_error e
+      exit
     end # def start
 
     private
@@ -201,10 +205,13 @@ module Rumpy
             send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
           end
         rescue ActiveRecord::StatementInvalid
-          @logger.warn 'Statement Invalid catched'
-          @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
+          statement_invalid
           retry
+        rescue ActiveRecord::ConnectionTimeoutError
+          connection_timeout_error
+          retry
+        rescue => e
+          general_error e
         end
       end
     end # def set_subscription_callback
@@ -213,7 +220,7 @@ module Rumpy
       @client.add_message_callback do |msg|
         if msg.type != :error and msg.body and msg.from then
           if @roster[msg.from] and @roster[msg.from].subscription == :both then
-            @logger.debug "got normal message from #{msg.from}"
+            @logger.debug "got normal message #{msg}"
 
             @queues[msg.from.strip.to_s].enq msg
           else # if @roster[msg.from] and @roster[msg.from].subscription == :both
@@ -251,17 +258,18 @@ module Rumpy
         begin
           loop do
             backend_func().each do |result|
-              send_msg Jabber::Message.new(*result).set_type :chat
+              message = Jabber::Message.new(*result).set_type :chat
+              send_msg message if message.body and message.from
             end
           end
         rescue ActiveRecord::StatementInvalid
-          @logger.warn 'Statement Invalid catched'
-          @logger.info 'Reconnecting to database'
-          @main_model.connection.reconnect!
+          statement_invalid
+          retry
+        rescue ActiveRecord::ConnectionTimeoutError
+          connection_timeout_error
           retry
         rescue => e
-          $logger.error e.inspect
-          $logger.error e.backtrace
+          general_error e
         end # begin
       end if self.respond_to? :backend_func
     end # def start_backend_thread
@@ -284,20 +292,16 @@ module Rumpy
 
             pars_results = parser_func msg.body
             @logger.debug "parsed message: #{pars_results.inspect}"
-            send_msg msg.answer.set_body do_func(user, pars_results)
+            message = do_func user, pars_results
+            send_msg msg.answer.set_body message unless message.empty?
           rescue ActiveRecord::StatementInvalid
-            @logger.warn 'Statement Invalid catched!'
-            @logger.info 'Reconnecting to database'
-            @main_model.connection.reconnect!
+            statement_invalid
             retry
           rescue ActiveRecord::ConnectionTimeoutError
-            @logger.warn 'ActiveRecord::ConnectionTimeoutError'
-            @logger.info 'sleep and retry again'
-            sleep 3
+            connection_timeout_error
             retry
           rescue => e
-            @logger.error e.inspect
-            @logger.error e.backtrace
+            general_error e
           end # begin
 
           @main_model.connection_pool.release_connection
@@ -310,6 +314,23 @@ module Rumpy
       return if msg.nil?
       @logger.debug "sending message: #{msg}"
       @client.send msg
+    end
+
+    def statement_invalid
+      @logger.warn 'Statement Invalid catched'
+      @logger.info 'Reconnecting to database'
+      @main_model.connection.reconnect!
+    end
+
+    def connection_timeout_error
+      @logger.warn 'ActiveRecord::ConnectionTimeoutError'
+      @logger.info 'sleep and retry again'
+      sleep 3
+    end
+
+    def general_error(exception)
+      @logger.error exception.inspect
+      @logger.error exception.backtrace
     end
   end # module Rumpy::Bot
 end # module Rumpy
