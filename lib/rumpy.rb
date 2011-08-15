@@ -21,7 +21,7 @@ module Rumpy
       file.puts pid
     end
     true
-  end
+  end # def self.start(botclass)
 
   # Determine the name of pid_file, read pid from this file
   # and try to kill process with this pid
@@ -36,7 +36,7 @@ module Rumpy
       File.unlink pf
     end
     true
-  end
+  end # def self.stop(botclass)
 
   # Create new instance of `botclass` and start it without detaching
   def self.run(botclass)
@@ -54,30 +54,23 @@ module Rumpy
   module Bot
     attr_reader :pid_file
 
+
     # one and only public function, defined in this module
     # simply initializes bot's variables, connection, etc.
     # and starts bot
     def start
-      if @logger.nil? then # if user haven't created his own logger
-        @log_file             ||= STDERR
-        @log_level            ||= Logger::INFO
-        @logger                 = Logger.new @log_file
-        @logger.level           = @log_level
-        @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
-      end
-      Signal.trap :TERM do |signo|
-        @logger.info 'terminating'
-        @logger.close
-        exit
-      end
+      @log_file             ||= STDERR
+      @log_level            ||= Logger::INFO
+      @logger                 = Logger.new @log_file, @log_shift_age, @log_shift_size
+      @logger.level           = @log_level
+      @logger.progname        = @log_progname
+      @logger.formatter       = @log_formatter
+      @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
 
       @logger.info 'starting bot'
-      @logger.debug 'initializing some variables'
       init
-      @logger.debug 'establishing xmpp connection'
       connect
-      @logger.debug 'clear wrong users'
-      clear_users
+      prepare_users
 
       set_subscription_callback
       set_message_callback
@@ -86,34 +79,35 @@ module Rumpy
       start_backend_thread
 
       @logger.info 'Bot is going ONLINE'
-      @client.send Jabber::Presence.new.set_priority(@priority).set_status(@status)
+      send_msg Jabber::Presence.new(nil, @status, @priority)
+
+      Signal.trap :TERM do |signo|
+        @logger.info 'Bot is unavailable'
+        send_msg Jabber::Presence.new.set_type :unavailable
+
+        @queues.each do |user, queue|
+          queue.enq :halt
+        end
+        until @queues.empty?
+          sleep 1
+        end
+        @client.close
+
+        @logger.info 'terminating'
+        @logger.close
+        exit
+      end
 
       Thread.stop
-    end
+    rescue => e
+      general_error e
+      exit
+    end # def start
 
     private
 
-    def start_backend_thread
-      Thread.new do
-        begin
-          loop do
-            backend_func().each do |result|
-              send_msg *result
-            end
-          end
-        rescue ActiveRecord::StatementInvalid
-          @logger.warn 'Statement Invalid catched'
-          @logger.info 'Reconnecting to database'
-          reconnect_db!
-          retry
-        rescue => e
-          $logger.error e.inspect
-          $logger.error e.backtrace
-        end
-      end if self.respond_to? :backend_func
-    end
-
     def init
+      @logger.debug 'initializing some variables'
 
       xmppconfig  = YAML::load_file @config_path + '/xmpp.yml'
       @logger.info 'loaded xmpp.yml'
@@ -145,148 +139,198 @@ module Rumpy
       def @main_model.find_by_jid(jid)
         super jid.strip.to_s
       end
-    end
+
+      @queues = Hash.new do |h, k|
+        h[k]  = Queue.new
+      end
+    end # def init
 
     def connect
+      @logger.debug 'establishing xmpp connection'
+
       @client.connect
       @client.auth @password
       @roster = Jabber::Roster::Helper.new @client
       @roster.wait_for_roster
+
       @logger.info 'xmpp connection established'
     end
 
-    def clear_users
-      @main_model.find_each do |user|
-        items = @roster.find user.jid
-        if items.count.zero? then
-          @logger.info "deleting from database user with jid #{user.jid}"
-          user.destroy
-        end
-      end
+    def prepare_users
+      @logger.debug 'clear wrong users'
+
       @roster.items.each do |jid, item|
-        user = find_user_by_jid jid
-        if user.nil? then
+        user = @main_model.find_by_jid jid
+        if user.nil? or item.subscription != :both then
           @logger.info "deleting from roster user with jid #{jid}"
           item.remove
-        elsif item.subscription != :both then
-          @logger.info "deleting from roster&database user with jid #{jid}"
-          item.remove
-          user.destroy
         end
       end
+      @main_model.find_each do |user|
+        items = @roster.find user.jid
+        if items.empty? then
+          @logger.info "deleting from database user with jid #{user.jid}"
+          user.destroy
+        else
+          start_user_thread user
+        end
+      end
+
       @main_model.connection_pool.release_connection
-    end
+    end # def prepare_users
 
     def set_subscription_callback
       @roster.add_subscription_request_callback do |item, presence|
         jid = presence.from
         @roster.accept_subscription jid
-        @client.send Jabber::Presence.new.set_type(:subscribe).set_to(jid)
-        send_msg jid, @lang['hello']
-        @logger.info "#{jid} wanna subscribe"
+        send_msg presence.answer.set_type :subscribe
+        send_msg Jabber::Message.new(jid, @lang['hello']).set_type :chat
+
+        @logger.info "#{jid} just subscribed"
       end
       @roster.add_subscription_callback do |item, presence|
         begin
           case presence.type
           when :unsubscribed, :unsubscribe
             @logger.info "#{item.jid} wanna unsubscribe"
+            @queues[item.jid.strip.to_s].enq :unsubscribe
             item.remove
-            remove_jid item.jid
           when :subscribed
-            add_jid item.jid
-            send_msg item.jid, @lang['authorized']
+            user = @main_model.new
+            user.jid = item.jid.strip.to_s
+            user.save
+            start_user_thread user
+
+            @logger.info "added new user: #{user.jid}"
+            send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
           end
         rescue ActiveRecord::StatementInvalid
-          @logger.warn 'Statement Invalid catched'
-          @logger.info 'Reconnecting to database'
-          reconnect_db!
+          statement_invalid
           retry
+        rescue ActiveRecord::ConnectionTimeoutError
+          connection_timeout_error
+          retry
+        rescue => e
+          general_error e
         end
       end
-    end
-
-    def find_user_by_jid(jid)
-      @main_model.find_by_jid jid
-    end
-
-    def reconnect_db!
-      @main_model.connection.reconnect!
-    end
+    end # def set_subscription_callback
 
     def set_message_callback
       @client.add_message_callback do |msg|
-        begin
-          if msg.type != :error and msg.body and msg.from then
-            if user = find_user_by_jid(msg.from) then
-              @logger.debug "get normal message from #{msg.from}"
-              pars_results = parser_func msg.body
-              @logger.debug "parsed message: #{pars_results.inspect}"
+        if msg.type != :error and msg.body and msg.from then
+          if @roster[msg.from] and @roster[msg.from].subscription == :both then
+            @logger.debug "got normal message #{msg}"
 
-              message = do_func user, pars_results
-              send_msg msg.from, message
-            else
-              @logger.debug "uknown user #{msg.from}"
-              send_msg msg.from, @lang['stranger']
-              items = @roster.find msg.from.strip.to_s
-              items.first.last.remove unless items.empty?
-            end
-          end
-        rescue ActiveRecord::StatementInvalid
-          @logger.warn 'Statement Invalid catched!'
-          @logger.info 'Reconnecting to database'
-          reconnect_db!
-          retry
-        rescue => e
-          @logger.error e.inspect
-          @logger.error e.backtrace
-        end
-      end
-    end
+            @queues[msg.from.strip.to_s].enq msg
+          else # if @roster[msg.from] and @roster[msg.from].subscription == :both
+            @logger.debug "user not in roster: #{msg.from}"
+
+            send_msg msg.answer.set_body @lang['stranger']
+          end # if @roster[msg.from] and @roster[msg.from].subscription == :both
+        end # if msg.type != :error and msg.body and msg.from
+      end # @client.add_message_callback
+    end # def set_message_callback
 
     def set_iq_callback
       @client.add_iq_callback do |iq|
-        @logger.debug "got iq #{iq.inspect}"
+        @logger.debug "got iq #{iq}"
         if iq.type == :get then # hack for pidgin (STOP USING IT)
-          response = Jabber::Iq.new :error, iq.from
-          response.id = iq.id
-          if iq.elements["time"] == "<time xmlns='urn:xmpp:time'/>" then
+          response = iq.answer true
+          if iq.elements['time'] == "<time xmlns='urn:xmpp:time'/>" then
             @logger.debug 'this is time request, okay'
             response.set_type :result
-            response.root.add REXML::Element.new('time')
-            response.elements['time'].attributes['xmlns'] = 'urn:xmpp:time'
             tm = Time.now
             response.elements['time'].add REXML::Element.new('tzo')
             response.elements['time/tzo'].text = tm.xmlschema[-6..-1]
             response.elements['time'].add REXML::Element.new('utc')
             response.elements['time/utc'].text = tm.utc.xmlschema
-           end
-          @logger.debug "sending response: #{response}"
-          @client.send response
+          else
+            response.set_type :error
+          end # if iq.elements['time']
+          send_msg response
         end
       end
-    end
+    end # def set_iq_callback
 
-    def send_msg(destination, text)
-      return if destination.nil? or text.nil?
-      msg = Jabber::Message.new destination, text
-      msg.type = :chat
+    def start_backend_thread
+      Thread.new do
+        begin
+          loop do
+            backend_func().each do |result|
+              message = Jabber::Message.new(*result).set_type :chat
+              send_msg message if message.body and message.from
+            end
+          end
+        rescue ActiveRecord::StatementInvalid
+          statement_invalid
+          retry
+        rescue ActiveRecord::ConnectionTimeoutError
+          connection_timeout_error
+          retry
+        rescue => e
+          general_error e
+        end # begin
+      end if self.respond_to? :backend_func
+    end # def start_backend_thread
+
+    def start_user_thread(user)
+      Thread.new(user) do |user|
+
+        loop do
+          msg = @queues[user.jid].deq
+
+          begin
+            if msg.kind_of? Symbol then # :unsubscribe or :halt
+              if msg == :unsubscribe
+                @logger.info "removing user #{user.jid}"
+                user.destroy
+              end
+              @queues.delete user.jid
+              break
+            end
+
+            pars_results = parser_func msg.body
+            @logger.debug "parsed message: #{pars_results.inspect}"
+            message = do_func user, pars_results
+            send_msg msg.answer.set_body message unless message.empty?
+          rescue ActiveRecord::StatementInvalid
+            statement_invalid
+            retry
+          rescue ActiveRecord::ConnectionTimeoutError
+            connection_timeout_error
+            retry
+          rescue => e
+            general_error e
+          end # begin
+
+          @main_model.connection_pool.release_connection
+        end # loop do
+        Thread.current.join
+      end # Thread.new do
+    end # def start_user_thread(queue)
+
+    def send_msg(msg)
+      return if msg.nil?
       @logger.debug "sending message: #{msg}"
       @client.send msg
     end
 
-    def add_jid(jid)
-      user = @main_model.new
-      user.jid = jid.strip.to_s
-      user.save
-      @logger.info "added new user: #{jid}"
+    def statement_invalid
+      @logger.warn 'Statement Invalid catched'
+      @logger.info 'Reconnecting to database'
+      @main_model.connection.reconnect!
     end
 
-    def remove_jid(jid)
-      user = @main_model.find_by_jid jid
-      unless user.nil?
-        @logger.info "removing user #{jid}"
-        user.destroy
-      end
+    def connection_timeout_error
+      @logger.warn 'ActiveRecord::ConnectionTimeoutError'
+      @logger.info 'sleep and retry again'
+      sleep 3
     end
-  end
-end
+
+    def general_error(exception)
+      @logger.error exception.inspect
+      @logger.error exception.backtrace
+    end
+  end # module Rumpy::Bot
+end # module Rumpy
