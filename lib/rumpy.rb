@@ -65,11 +65,6 @@ module Rumpy
         @logger.level           = @log_level
         @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
       end
-      Signal.trap :TERM do |signo|
-        @logger.info 'terminating'
-        @logger.close
-        exit
-      end
 
       @logger.info 'starting bot'
       init
@@ -83,7 +78,24 @@ module Rumpy
       start_backend_thread
 
       @logger.info 'Bot is going ONLINE'
-      @client.send Jabber::Presence.new.set_priority(@priority).set_status(@status)
+      send_msg Jabber::Presence.new(nil ,@status, @priority)
+
+      Signal.trap :TERM do |signo|
+        @logger.info 'Bot is unavailable'
+        send_msg Jabber::Presence.new.set_type :unavailable
+
+        @queues.each do |user, queue|
+          queue.enq :halt
+        end
+        until @queues.empty?
+          sleep 1
+        end
+        @client.close
+
+        @logger.info 'terminating'
+        @logger.close
+        exit
+      end
 
       Thread.stop
     end # def start
@@ -124,7 +136,6 @@ module Rumpy
         super jid.strip.to_s
       end
 
-      Struct.new "UserMQT", :queue, :thread
       @queues = Hash.new do |h, k|
         h[k]  = Queue.new
       end
@@ -157,7 +168,7 @@ module Rumpy
           @logger.info "deleting from database user with jid #{user.jid}"
           user.destroy
         else
-          start_user_thread user.jid
+          start_user_thread user
         end
       end
 
@@ -181,7 +192,12 @@ module Rumpy
             @queues[item.jid.strip.to_s].enq :unsubscribe
             item.remove
           when :subscribed
-            add_jid item.jid
+            user = @main_model.new
+            user.jid = item.jid.strip.to_s
+            user.save
+            start_user_thread user
+
+            @logger.info "added new user: #{user.jid}"
             send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
           end
         rescue ActiveRecord::StatementInvalid
@@ -250,18 +266,21 @@ module Rumpy
       end if self.respond_to? :backend_func
     end # def start_backend_thread
 
-    def start_user_thread(userjid)
-      Thread.new(userjid) do |userjid|
+    def start_user_thread(user)
+      Thread.new(user) do |user|
+
         loop do
-          msg = @queues[userjid].deq
+          msg = @queues[user.jid].deq
 
           begin
-            if msg == :unsubscribe then
-              remove_jid userjid
+            if msg.kind_of? Symbol then # :unsubscribe or :halt
+              if msg == :unsubscribe
+                @logger.info "removing user #{user.jid}"
+                user.destroy
+              end
+              @queues.delete user.jid
               break
             end
-
-            user = @main_model.find_by_jid msg.from
 
             pars_results = parser_func msg.body
             @logger.debug "parsed message: #{pars_results.inspect}"
@@ -291,25 +310,6 @@ module Rumpy
       return if msg.nil?
       @logger.debug "sending message: #{msg}"
       @client.send msg
-    end
-
-    def add_jid(jid)
-      user = @main_model.new
-      user.jid = jid.strip.to_s
-      user.save
-      start_user_thread user.jid
-      @logger.info "added new user: #{jid}"
-    end
-
-    def remove_jid(jid)
-      user = @main_model.find_by_jid jid
-      unless user.nil?
-        @logger.info "removing user #{jid}"
-
-        @queues.delete user.jid
-
-        user.destroy
-      end
     end
   end # module Rumpy::Bot
 end # module Rumpy
