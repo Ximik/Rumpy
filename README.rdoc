@@ -21,25 +21,25 @@ Our goal is 'DO NOT REINVENT THE WHEEL'.
 * Implement your ActiveRecord models in one directory. You have to implement at least one model, for users.
 * Prepare your database.
 * Start writing your class:
-  * Mix in +Rumpy::Bot+ module:
+  * Mix in Rumpy::Bot module:
     include Rumpy::Bot
   * Define some instance variables:
-    +@models_path+    ::  Path to directory, containing all ruby files with models.
-    +@config_path+    ::  Path to directory, containing all ruby config files
-    +@main_model+     ::  Symbol, that stands for main model. If your main model is, e.g. User, set +@main_model+ to +:user+
-    +@pid_file+       ::  Optional variable, sets location of the file to which pid of detached process will be saved. If not set, it equals +NameOfYourBotClass.downcase+ + '.pid'.
-    +@log_file+       ::  Optional variable, sets location of the file for errors. Default is +STDERR+.
-    +@log_level+      ::  Optional variable, sets the logging severity threshold. Possible values are +Logger::DEBUG+ < +Logger::INFO+ < +Logger::WARN+ < +Logger::ERROR+ < +Logger::FATAL+ < +Logger::UNKNOWN+. Default is +Logger::INFO+
-    +@log_shift_age+  ::  Optional variable, sets number of old log files to keep, or frequency of rotation (daily, weekly or monthly).
-    +@log_shift_size+ ::  Optional variable, sets maximum logfile size.
-    +@log_progname+   ::  Optional variable, sets logging program name.
-    +@log_formatter+  ::  Optional variable, sets logging formatter. +@log_formatter#call+ is invoked with 4 arguments; s+everity+, +time+, +progname+ and +msg+ for each log.
-    +@bot_name+       ::  Optional name of the bot. Default is name of bot's class.
-    +@bot_version+    ::  Optional version of the bot. Default is 1.0.0.
+    @models_path    ::  Path to directory, containing all ruby files with models.
+    @config_path    ::  Path to directory, containing all ruby config files
+    @main_model     ::  Symbol, that stands for main model. If your main model is, e.g. +User+, set @main_model to +:user+
+    @pid_file       ::  Optional variable, sets location of the file to which pid of detached process will be saved. If not set, it equals +NameOfYourBotClass.downcase+ + '.pid'.
+    @log_file       ::  Optional variable, sets location of the file for errors. Default is +STDERR+.
+    @log_level      ::  Optional variable, sets the logging severity threshold. Possible values are Logger::DEBUG < Logger::INFO < Logger::WARN < Logger::ERROR < Logger::FATAL < Logger::UNKNOWN. Default is Logger::INFO.
+    @log_shift_age  ::  Optional variable, sets number of old log files to keep, or frequency of rotation (daily, weekly or monthly).
+    @log_shift_size ::  Optional variable, sets maximum logfile size.
+    @log_progname   ::  Optional variable, sets logging program name.
+    @log_formatter  ::  Optional variable, sets logging formatter. @log_formatter#call is invoked with 4 arguments; +severity+, +time+, +progname+ and +msg+ for each log.
+    @bot_name       ::  Optional name of the bot. Default is name of bot's class.
+    @bot_version    ::  Optional version of the bot. Default is 1.0.0.
   * Write 3 methods:
-    +backend_func()+ -> +[[receiver, message]*]+ :: This optional method is running all the time in the loop. Returns array of pairs +[receiver, message]+.
-    +parser_func(msg)+ -> +pars_result+ :: This method parses any incoming message and returs results.
-    +do_func(usermodel, pars_results)+ -> +msg+ :: This method uses results from +parser_func+, doing some stuff with model of user, from whom message was received. Returns message to be send to this user
+    backend_func() -> [[receiver, message]*]    :: This optional method is running all the time in the loop. Returns array of pairs [receiver, message].
+    parser_func(msg) -> +pars_result+           :: This method parses any incoming message and returs results.
+    do_func(usermodel, pars_results) -> +msg+  :: This method uses results from +parser_func+, doing some stuff with model of user, from whom message was received. Returns message to be send to this user
 * Run bot:
   You can run your bot without detaching:
     Rumpy.run YourBotClassName
