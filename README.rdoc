@@ -21,7 +21,8 @@ Our goal is 'DO NOT REINVENT THE WHEEL'.
 * Implement your ActiveRecord models in one directory. You have to implement at least one model, for users.
 * Prepare your database.
 * Start writing your class:
-  * Mix in Rumpy::Bot module:
+  * Mix in Rumpy::Bot module
+
     include Rumpy::Bot
   * Define some instance variables:
     @models_path    ::  Path to directory, containing all ruby files with models.
