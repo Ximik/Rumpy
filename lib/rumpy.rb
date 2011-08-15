@@ -125,8 +125,8 @@ module Rumpy
       end
 
       Struct.new "UserMQT", :queue, :thread
-      @mqs = Hash.new do |h, k|
-        h[k] = Struct::UserMQT.new Queue.new, nil
+      @queues = Hash.new do |h, k|
+        h[k]  = Queue.new
       end
     end # def init
 
@@ -157,7 +157,7 @@ module Rumpy
           @logger.info "deleting from database user with jid #{user.jid}"
           user.destroy
         else
-          start_user_thread @mqs[user.jid]
+          start_user_thread user.jid
         end
       end
 
@@ -177,9 +177,9 @@ module Rumpy
         begin
           case presence.type
           when :unsubscribed, :unsubscribe
-            @mqs[item.jid.strip.to_s].queue.enq :unsubscribe
-            @mqs[item.jid.strip.to_s].queue.enq item
-            #@mqs[item.jid.strip.to_s].thread.run
+            @logger.info "#{item.jid} wanna unsubscribe"
+            @queues[item.jid.strip.to_s].enq :unsubscribe
+            item.remove
           when :subscribed
             add_jid item.jid
             send_msg Jabber::Message.new(item.jid, @lang['authorized']).set_type :chat
@@ -199,8 +199,7 @@ module Rumpy
           if @roster[msg.from] and @roster[msg.from].subscription == :both then
             @logger.debug "got normal message from #{msg.from}"
 
-            @mqs[msg.from.strip.to_s].queue.enq msg
-            #@mqs[msg.from.strip.to_s].thread.run
+            @queues[msg.from.strip.to_s].enq msg
           else # if @roster[msg.from] and @roster[msg.from].subscription == :both
             @logger.debug "user not in roster: #{msg.from}"
 
@@ -251,19 +250,15 @@ module Rumpy
       end if self.respond_to? :backend_func
     end # def start_backend_thread
 
-    def start_user_thread(usermq)
-      Thread.new do
-        usermq.thread = Thread.current
+    def start_user_thread(userjid)
+      Thread.new(userjid) do |userjid|
         loop do
-          #Thread.stop if usermq.queue.empty?
-          msg = usermq.queue.deq
+          msg = @queues[userjid].deq
 
           begin
             if msg == :unsubscribe then
-              item = usermq.queue.deq
-              @logger.info "#{item.jid} wanna unsubscribe"
-              item.remove
-              remove_jid item.jid
+              remove_jid userjid
+              break
             end
 
             user = @main_model.find_by_jid msg.from
@@ -288,8 +283,9 @@ module Rumpy
 
           @main_model.connection_pool.release_connection
         end # loop do
+        Thread.current.join
       end # Thread.new do
-    end # def start_user_thread(usermq)
+    end # def start_user_thread(queue)
 
     def send_msg(msg)
       return if msg.nil?
@@ -301,7 +297,7 @@ module Rumpy
       user = @main_model.new
       user.jid = jid.strip.to_s
       user.save
-      start_user_thread @mqs[user.jid]
+      start_user_thread user.jid
       @logger.info "added new user: #{jid}"
     end
 
@@ -310,10 +306,9 @@ module Rumpy
       unless user.nil?
         @logger.info "removing user #{jid}"
 
-        @mqs.delete user.jid
+        @queues.delete user.jid
 
         user.destroy
-        Thread.current.kill
       end
     end
   end # module Rumpy::Bot
