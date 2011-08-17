@@ -10,9 +10,12 @@ module Rumpy
   # Create new instance of `botclass`, start it in new process,
   # detach this process and save the pid of process in pid_file
   def self.start(botclass)
-    bot = botclass.new
-    pf = pid_file bot
+    bot           = botclass.new
+    pf            = pid_file bot
     return false if File.exist? pf
+
+    bot.log_file  = "#{botclass.to_s.downcase}.log"
+
     pid = fork do
       bot.start
     end
@@ -54,20 +57,17 @@ module Rumpy
   module Bot
     attr_reader :pid_file
 
+    # if @log_file isn't set, initialize it
+    def log_file=(logfile)
+      @log_file ||= logfile
+    end
 
     # one and only public function, defined in this module
     # simply initializes bot's variables, connection, etc.
     # and starts bot
     def start
-      @log_file             ||= STDERR
-      @log_level            ||= Logger::INFO
-      @logger                 = Logger.new @log_file, @log_shift_age, @log_shift_size
-      @logger.level           = @log_level
-      @logger.progname        = @log_progname
-      @logger.formatter       = @log_formatter
-      @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
+      logger_init
 
-      @logger.info 'starting bot'
       init
       connect
       prepare_users
@@ -81,22 +81,7 @@ module Rumpy
       @logger.info 'Bot is going ONLINE'
       send_msg Jabber::Presence.new(nil, @status, @priority)
 
-      Signal.trap :TERM do |signo|
-        @logger.info 'Bot is unavailable'
-        send_msg Jabber::Presence.new.set_type :unavailable
-
-        @queues.each do |user, queue|
-          queue.enq :halt
-        end
-        until @queues.empty?
-          sleep 1
-        end
-        @client.close
-
-        @logger.info 'terminating'
-        @logger.close
-        exit
-      end
+      add_signal_trap
 
       Thread.stop
     rescue => e
@@ -105,6 +90,18 @@ module Rumpy
     end # def start
 
     private
+
+    def logger_init
+      @log_file             ||= STDERR
+      @log_level            ||= Logger::INFO
+      @logger                 = Logger.new @log_file, @log_shift_age, @log_shift_size
+      @logger.level           = @log_level
+      @logger.progname        = @log_progname
+      @logger.formatter       = @log_formatter
+      @logger.datetime_format = "%Y-%m-%d %H:%M:%S"
+
+      @logger.info 'starting bot'
+    end
 
     def init
       @logger.debug 'initializing some variables'
@@ -273,6 +270,25 @@ module Rumpy
         end # begin
       end if self.respond_to? :backend_func
     end # def start_backend_thread
+
+    def add_signal_trap
+      Signal.trap :TERM do |signo| # soft stop
+        @logger.info 'Bot is unavailable'
+        send_msg Jabber::Presence.new.set_type :unavailable
+
+        @queues.each do |user, queue|
+          queue.enq :halt
+        end
+        until @queues.empty?
+          sleep 1
+        end
+        @client.close
+
+        @logger.info 'terminating'
+        @logger.close
+        exit
+      end
+    end
 
     def start_user_thread(user)
       Thread.new(user) do |user|
