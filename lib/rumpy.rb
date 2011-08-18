@@ -256,7 +256,7 @@ module Rumpy
           loop do
             backend_func().each do |result|
               message = Jabber::Message.new(*result).set_type :chat
-              send_msg message if message.body and message.from
+              send_msg message if message.body and message.to
             end
           end
         rescue ActiveRecord::StatementInvalid
