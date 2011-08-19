@@ -17,10 +17,7 @@ Our goal is <b>'DO NOT REINVENT THE WHEEL'</b>.
 
 Rumpy uses 3 configs:
 +database.yml+  ::  Your bot's database preferences.
-+lang.yml+      ::  Your bot's responces. Append to existing keys more answers and use them like <tt>@lang['someanswer]</tt>. There *MUST* be at least 3 keys:
-  * +hello+ is used when somebody adds bot
-  * +stranger+ is used when somebody trying to speak with bot without authorization
-  * +authorized+ is used when bot gets authorization.
++lang.yml+      ::  Your bot's responces. Append to existing keys more answers and use them like <tt>@lang['someanswer]</tt>. There *MUST* be at least 3 keys: +hello+ (<em>used when somebody adds bot</em>), +stranger+ (<em>used when somebody trying to speak with bot without authorization</em>) and +authorized+ (<em>used when bot gets authorization</em>).
 +xmpp.yml+      ::  Your bot's jabber account settings.
 Look at Examples section to see this configs.
 
@@ -42,44 +39,26 @@ You have to mix in your bot's class the <tt>Rumpy::Bot</tt> module:
 === Instance variables
 
 +Rumpy+ uses next instance variables:
-  <tt>@models_files</tt>    ::  Array of your models files.
-  <tt>@config_path</tt>     ::  Path to directory, containing all ruby config files.
-  Default is +config+.
-  <tt>@main_model</tt>      ::  Symbol, that stands for main model.
-  For example, if your main model is +User+, you have to set <tt>@main_model</tt> to <tt>:user</tt>.
-  Default is <tt>:user</tt>.
-  <tt>@pid_file</tt>        ::  Location of the file to which pid of detached process will be saved.
-  Default is <tt>NameOfYourBotClass.downcase + '.pid'</tt>.
-  <tt>@log_file</tt>        ::  Location of the logfile. Default is +STDERR+.
-  <tt>@log_level</tt>       ::  Logging severity threshold.
-  Possible values are:
-    1. <tt>Logger::DEBUG</tt>
-    2. <tt>Logger::INFO</tt>
-    3. <tt>Logger::WARN</tt>
-    4. <tt>Logger::ERROR</tt>
-    5. <tt>Logger::FATAL</tt>
-    6. <tt>Logger::UNKNOWN</tt>.
-  Default is <tt>Logger::INFO</tt>.
-  <tt>@log_shift_age</tt>   ::  Number of old log files to keep, or frequency of rotation (_daily_, _weekly_ or _monthly_).
-  Default is +0+.
-  <tt>@log_shift_size</tt>  ::  Maximum logfile size.
-  Default is +1048576+.
-  <tt>@logger</tt>          ::  If you need more accuracy in configuring logger, simply create one.
-  It have to be compatible with standard library's +logger+.
-  <tt>@bot_name</tt>        ::  Name of the bot.
-  Default is name of bot's class.
-  <tt>@bot_version</tt>     ::  Optional version of the bot.
-  Default is <tt>1.0.0</tt>.
+<tt>@models_files</tt>    ::  Array of your models files.
+<tt>@config_path</tt>     ::  Path to directory, containing all ruby config files. Default is +config+.
+<tt>@main_model</tt>      ::  Symbol, that stands for main model. For example, if your main model is +User+, you have to set <tt>@main_model</tt> to <tt>:user</tt>. Default is <tt>:user</tt>.
+<tt>@pid_file</tt>        ::  Location of the file to which pid of detached process will be saved. Default is <tt>NameOfYourBotClass.downcase + '.pid'</tt>.
+<tt>@log_file</tt>        ::  Location of the logfile. Default is +STDERR+.
+<tt>@log_level</tt>       ::  Logging severity threshold. Possible values are the same the logger from standard library has. Default is <tt>Logger::INFO</tt>.
+<tt>@log_shift_age</tt>   ::  Number of old log files to keep, or frequency of rotation (_daily_, _weekly_ or _monthly_). Default is +0+.
+<tt>@log_shift_size</tt>  ::  Maximum logfile size. Default is +1048576+.
+<tt>@logger</tt>          ::  If you need more accuracy in configuring logger, simply create one. It have to be compatible with standard library's +logger+.
+<tt>@bot_name</tt>        ::  Name of the bot. Default is name of bot's class.
+<tt>@bot_version</tt>     ::  Optional version of the bot. Default is <tt>1.0.0</tt>.
 
 === Instance methods
 
 +Rumpy+ needs only three methods:
-  <tt>backend_func() -> [[receiver, message]*]</tt> :: This *optional* method is running all the time in the loop.
-  Returns array of pairs <tt>[receiver, message]</tt>.
-  <tt>parser_func(msg) -> pars_result</tt>          :: This method parses any incoming message and returs results of parsing.
-  <tt>do_func(usermodel, pars_results) -> msg</tt>  :: This method uses results from +parser_func+, doing some stuff with model of user, from whom the message was received.
-  Returns the answer to this user.
-  _Hint_: empty answer will not be sent.
+<tt>backend_func() -> [[receiver, message]*]</tt> :: This *optional* method is running all the time in the loop. Returns array of pairs <tt>[receiver, message]</tt>.
+<tt>parser_func(msg) -> pars_result</tt>          :: This method parses any incoming message and returs results of parsing.
+<tt>do_func(usermodel, pars_results) -> msg</tt>  :: This method uses results from +parser_func+, doing some stuff with model of user, from whom the message was received. Returns the answer to this user.
+
+_Hint_: empty answer will not be sent.
 
 == Run bot
 
@@ -98,9 +77,9 @@ Or with detaching:
 = Examples
 
 Look at
-  * {CuteBot}[https://github.com/MPogoda/CuteBot]
-  * {yatodo}[https://github.com/MPogoda/yatodo]
-  * {Noty}[https://github.com/Ximik/Noty]
+* {CuteBot}[https://github.com/MPogoda/CuteBot]
+* {yatodo}[https://github.com/MPogoda/yatodo]
+* {Noty}[https://github.com/Ximik/Noty]
 
 = Contacts
 
