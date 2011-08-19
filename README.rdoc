@@ -16,14 +16,14 @@ Our goal is <b>'DO NOT REINVENT THE WHEEL'</b>.
 == Configs
 
 Rumpy uses 3 configs:
-  +database.yml+  ::  Your bot's database preferences.
-  +lang.yml+      ::  Your bot's responces.
-  Append to existing keys more answers and use them like <tt>@lang['someanswer]</tt>.
-  There *MUST* be at least 3 keys: 
-    +hello+       ::  used when somebody adds bot
-    +stranger+    ::  used when somebody trying to speak with bot without authorization
-    +authorized+  ::  used when bot gets authorization.
-  +xmpp.yml+      ::  Your bot's jabber account settings.
++database.yml+  ::  Your bot's database preferences.
++lang.yml+      ::  Your bot's responces.
+Append to existing keys more answers and use them like <tt>@lang['someanswer]</tt>.
+There *MUST* be at least 3 keys: 
+  +hello+       ::  used when somebody adds bot
+  +stranger+    ::  used when somebody trying to speak with bot without authorization
+  +authorized+  ::  used when bot gets authorization.
++xmpp.yml+      ::  Your bot's jabber account settings.
 Look at Examples section to see this configs.
 
 == ActiveRecord models
