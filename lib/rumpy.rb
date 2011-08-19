@@ -106,6 +106,9 @@ module Rumpy
     end
 
     def init
+      @config_path ||= 'config'
+      @main_model  ||= :user
+
       @logger.debug 'initializing some variables'
 
       xmppconfig  = YAML::load_file @config_path + '/xmpp.yml'
