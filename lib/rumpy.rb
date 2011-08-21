@@ -13,7 +13,7 @@ module Rumpy
     pf            = pid_file bot
     return false if File.exist? pf
 
-    bot.log_file  = "#{botclass.to_s.downcase}.log"
+    bot.log_file  = "#{bot.class.to_s.downcase}.log"
 
     pid = fork do
       bot.start
