@@ -48,7 +48,7 @@ module Rumpy
   # Determine the name of file where thid pid will stored to
   def self.pid_file(bot)
     pid_file = bot.pid_file
-    pid_file = bot.class.to_s.downcase + '.pid' if pid_file.nil?
+    pid_file = bot.class.to_s.downcase + '.pid' unless pid_file
     pid_file
   end
 
@@ -86,15 +86,15 @@ module Rumpy
       add_signal_trap
 
       Thread.stop
-    rescue => e
-      general_error e
+    rescue => ex
+      general_error ex
       exit
     end # def start
 
     private
 
     def logger_init
-      if @logger.nil? then
+      unless @logger
         @log_file             ||= STDERR
         @log_level            ||= Logger::INFO
         @logger                 = Logger.new @log_file, @log_shift_age, @log_shift_size
@@ -124,7 +124,7 @@ module Rumpy
       @client     = Jabber::Client.new @jid
       Jabber::Version::SimpleResponder.new(@client, @bot_name || self.class.to_s, @bot_version || '1.0.0', RUBY_PLATFORM)
 
-      if @models_files then
+      if @models_files
         dbconfig  = YAML::load_file @config_path + '/database.yml'
         @logger.info 'loaded database.yml'
         @logger.debug "database.yml: #{dbconfig.inspect}"
@@ -160,9 +160,9 @@ module Rumpy
     def set_iq_callback
       @client.add_iq_callback do |iq|
         @logger.debug "got iq #{iq}"
-        if iq.type == :get then # hack for pidgin (STOP USING IT)
+        if iq.type == :get # hack for pidgin (STOP USING IT)
           response = iq.answer true
-          if iq.elements['time'] == "<time xmlns='urn:xmpp:time'/>" then
+          if iq.elements['time'] == "<time xmlns='urn:xmpp:time'/>"
             @logger.debug 'this is time request, okay'
             response.set_type :result
             tm = Time.now
@@ -209,16 +209,16 @@ module Rumpy
         rescue ActiveRecord::ConnectionTimeoutError
           connection_timeout_error
           retry
-        rescue => e
-          general_error e
+        rescue => ex
+          general_error ex
         end
       end
     end # def set_subscription_callback
 
     def set_message_callback
       @client.add_message_callback do |msg|
-        if msg.type != :error and msg.body and msg.from then
-          if @roster[msg.from] and @roster[msg.from].subscription == :both then
+        if msg.type != :error && msg.body && msg.from
+          if @roster[msg.from] && @roster[msg.from].subscription == :both
             @logger.debug "got normal message #{msg}"
 
             @queues[msg.from.strip.to_s].enq msg
@@ -237,7 +237,7 @@ module Rumpy
           loop do
             backend_func().each do |result|
               message = Jabber::Message.new(*result).set_type :chat
-              @output_queue.enq message if message.body and message.to
+              @output_queue.enq message if message.body && message.to
             end
           end
         rescue ActiveRecord::StatementInvalid
@@ -246,8 +246,8 @@ module Rumpy
         rescue ActiveRecord::ConnectionTimeoutError
           connection_timeout_error
           retry
-        rescue => e
-          general_error e
+        rescue => ex
+          general_error ex
         end # begin
       end if self.respond_to? :backend_func
     end # def start_backend_thread
@@ -256,7 +256,7 @@ module Rumpy
       Thread.new do
         @logger.info "Output queue initialized"
         until (msg = @output_queue.deq) == :halt do
-          if msg.nil? then
+          if msg.nil?
             @logger.debug "got nil message. wtf?"
           else
             @logger.debug "sending message #{msg}"
@@ -293,14 +293,14 @@ module Rumpy
 
       @roster.items.each do |jid, item|
         user = @main_model.find_by_jid jid.strip.to_s
-        if user.nil? or item.subscription != :both then
+        unless user.nil? || item.subscription != :both then
           @logger.info "deleting from roster user with jid #{jid}"
           item.remove
         end
       end
       @main_model.find_each do |user|
         items = @roster.find user.jid
-        if items.empty? then
+        if items.empty?
           @logger.info "deleting from database user with jid #{user.jid}"
           user.destroy
         else
@@ -327,8 +327,8 @@ module Rumpy
           rescue ActiveRecord::ConnectionTimeoutError
             connection_timeout_error
             retry
-          rescue => e
-            general_error e
+          rescue => ex
+            general_error ex
           end # begin
 
           @main_model.connection_pool.release_connection
