@@ -293,7 +293,7 @@ module Rumpy
 
       @roster.items.each do |jid, item|
         user = @main_model.find_by_jid jid.strip.to_s
-        unless user.nil? || item.subscription != :both then
+        if user.nil? || item.subscription != :both
           @logger.info "deleting from roster user with jid #{jid}"
           item.remove
         end
