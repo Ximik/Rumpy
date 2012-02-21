@@ -6,7 +6,8 @@ require 'active_record'
 require 'logger'
 
 # include this module into your bot's class
-module Bot
+
+module Rumpy::Bot
   attr_reader :pid_file
 
   # if @log_file isn't set, initialize it
