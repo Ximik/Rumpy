@@ -1,90 +1,95 @@
-= Welcome to Rumpy
+# Welcome to Rumpy
 
 Rumpy is some kind of framework to make up your own jabber bot quickly.
-It uses {ActiveRecord}[https://github.com/rails/rails/tree/master/activerecord] and {XMPP4R}[http://home.gna.org/xmpp4r/].
+It uses [ActiveRecord](https://github.com/rails/rails/tree/master/activerecord) and [XMPP4R](http://home.gna.org/xmpp4r/).
 
-Our goal is <b>'DO NOT REINVENT THE WHEEL'</b>.
+Our goal is **'DO NOT REINVENT THE WHEEL'**.
 
-= Features
+## Features
 
 * Forget about xmpp-related things. Just set your login and password.
 * Forget about database-related things. Just set your database preferences.
-* Write logic using ActiveRecord and callback functions.
+* Write logic using `ActiveRecord` and callback functions.
 
-= Getting started
+## Getting started
 
-== Configs
+### Configs
 
 Rumpy uses 3 configs:
-+database.yml+  ::  Your bot's database preferences.
-+lang.yml+      ::  Your bot's responces. Append to existing keys more answers and use them like <tt>@lang['someanswer']</tt>. There *MUST* be at least 3 keys: +hello+ (<em>used when somebody adds bot</em>), +stranger+ (<em>used when somebody trying to speak with bot without authorization</em>) and +authorized+ (<em>used when bot gets authorization</em>).
-+xmpp.yml+      ::  Your bot's jabber account settings.
+
+* *database.yml* :: Your bot's database preferences.
+* *lang.yml*     :: Your bot's responces. Append to existing keys more answers and use them like `@lang['someanswer']`. There **MUST** be at least 3 keys: `hello` (_used when somebody adds bot_), `stranger` (_used when somebody trying to speak with bot without authorization_) and `authorized` (_used when bot gets authorization_).
+* *xmpp.yml*     ::  Your bot's jabber account settings.
+
 Look at Examples section to see this configs.
 
-== ActiveRecord models
+### ActiveRecord models
 
-Implement your *ActiveRecord* models.
+Implement your `ActiveRecord` models.
 You have to implement at least one model, for users.
 
-== Prepare your database
+### Prepare your database
 
-== Your bot's class
+### Your bot's class
 
-=== Rumpy::Bot module
+#### `Rumpy::Bot` module
 
-You have to mix in your bot's class the <tt>Rumpy::Bot</tt> module:
+You have to mix in your bot's class the `Rumpy::Bot` module:
 
-  include Rumpy::Bot
+    include Rumpy::Bot
 
-=== Instance variables
+#### Instance variables
 
-+Rumpy+ uses next instance variables:
-<tt>@models_files</tt>    ::  Array of your models files.
-<tt>@config_path</tt>     ::  Path to directory, containing all ruby config files. Default is +config+.
-<tt>@main_model</tt>      ::  Symbol, that stands for main model. For example, if your main model is +User+, you have to set <tt>@main_model</tt> to <tt>:user</tt>. Default is <tt>:user</tt>.
-<tt>@pid_file</tt>        ::  Location of the file to which pid of detached process will be saved. Default is <tt>NameOfYourBotClass.downcase + '.pid'</tt>.
-<tt>@log_file</tt>        ::  Location of the logfile. Default is +STDERR+.
-<tt>@log_level</tt>       ::  Logging severity threshold. Possible values are the same the logger from standard library has. Default is <tt>Logger::INFO</tt>.
-<tt>@log_shift_age</tt>   ::  Number of old log files to keep, or frequency of rotation (_daily_, _weekly_ or _monthly_). Default is +0+.
-<tt>@log_shift_size</tt>  ::  Maximum logfile size. Default is +1048576+.
-<tt>@logger</tt>          ::  If you need more accuracy in configuring logger, simply create one. It have to be compatible with standard library's +logger+.
-<tt>@bot_name</tt>        ::  Name of the bot. Default is name of bot's class.
-<tt>@bot_version</tt>     ::  Optional version of the bot. Default is <tt>1.0.0</tt>.
+**Rumpy** uses next instance variables:
 
-=== Instance methods
+* `@models_files`    ::  Array of your models files.
+* `@config_path`     ::  Path to directory, containing all ruby configuration files. Default is `'config'`.
+* `@main_model`      ::  Symbol, that stands for main model. For example, if your main model is `User`, you have to set `@main_model = :user`. And this is default.
+* `@pid_file`        ::  Location of the file to which pid of detached process will be saved. Default is `NameOfYourBotClass.downcase + '.pid'`.
+* `@log_file`        ::  Location of the logfile. Default is `STDERR`.
+* `@log_level`       ::  Logging severity threshold. Possible values are the same the logger from standard library has. Default is `Logger::INFO`.
+* `@log_shift_age`   ::  Number of old log files to keep, or frequency of rotation (`daily`, `weekly` or `monthly`). Default is `0`.
+* `@log_shift_size`  ::  Maximum logfile size. Default is `1048576`.
+* `@logger`          ::  If you need more accuracy in configuring logger, simply create one. It have to be compatible with standard library's `logger`.
+* `@bot_name`        ::  Name of the bot. Default is name of bot's class.
+* `@bot_version`     ::  Optional version of the bot. Default is `'1.0.0'`.
 
-+Rumpy+ needs only three methods:
-<tt>backend_func() -> [[receiver, message]*]</tt> :: This *optional* method is running all the time in the loop. Returns array of pairs <tt>[receiver, message]</tt>.
-<tt>parser_func(msg) -> pars_result</tt>          :: This method parses any incoming message and returs results of parsing.
-<tt>do_func(usermodel, pars_results) -> msg</tt>  :: This method uses results from +parser_func+, doing some stuff with model of user, from whom the message was received. Returns the answer to this user.
+#### Instance methods
+
+**Rumpy** needs only three methods:
+
+* `backend_func() -> [[receiver, message]*]` :: This _optional_ method is running all the time in the loop. Returns array of pairs `[receiver, message]`.
+* `parser_func(msg) -> pars_result`          :: This method parses any incoming message and returs results of parsing.
+* `do_func(usermodel, pars_results) -> msg`  :: This method uses results from `parser_func`, doing some stuff with model of user, from whom the message was received. Returns the answer to this user.
 
 _Hint_: empty answer will not be sent.
 
-== Run bot
+### Run bot
 
 You can run your bot without detaching:
 
-  Rumpy.run YourBotClassName.new
+    Rumpy.run YourBotClassName.new
 
 Or with detaching:
 
-  bot = YourBotClassName.new
-  #To start your bot:
-  Rumpy.start bot
-  #To stop it:
-  Rumpy.stop bot
+    bot = YourBotClassName.new
+    #To start your bot:
+    Rumpy.start bot
+    #To stop it:
+    Rumpy.stop bot
 
-= Examples
+## Examples
 
 Look at
-* {CuteBot}[https://github.com/MPogoda/CuteBot]
-* {yatodo}[https://github.com/MPogoda/yatodo]
-* {Noty}[https://github.com/Ximik/Noty]
 
-= Contacts
+* [CuteBot](https://github.com/MPogoda/CuteBot)
+* [yatodo](https://github.com/MPogoda/yatodo)
+* [Noty](https://github.com/Ximik/Noty)
 
-Feel free to contact us about any questions related to +Rumpy+.
+## Contacts
 
-= License
+Feel free to contact us about any questions related to **Rumpy**.
 
-Rumpy is released under the MIT license.
+## License
+
+**Rumpy** is released under the MIT license.
